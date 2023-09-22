@@ -4,8 +4,8 @@ pub use logos::*;
 #[logos(skip r"[\s]")]
 #[logos(skip r"//[^\n]*")]
 pub enum Token {
-    #[regex(r"([\-]?[\d_]+|0x[\da-fA-F_]+|0b[01_]+)", callback = parse_int)]
-    Integer(i128),
+    #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)", callback = parse_int)]
+    Integer(u128),
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", priority = 0)]
     Ident,
 
@@ -113,11 +113,11 @@ impl Operator {
     }
 }
 
-fn parse_int(lex: &mut Lexer<Token>) -> i128 {
+fn parse_int(lex: &mut Lexer<Token>) -> u128 {
     let s = lex.slice().replace("_", "");
     match s.chars().nth(1).unwrap_or(' ') {
-        'x' => i128::from_str_radix(&s[2..], 16),
-        'b' => i128::from_str_radix(&s[2..], 2),
+        'x' => u128::from_str_radix(&s[2..], 16),
+        'b' => u128::from_str_radix(&s[2..], 2),
         _   => s.parse(),
     }.unwrap()
 }

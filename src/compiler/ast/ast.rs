@@ -133,12 +133,14 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str) -> Result<AExpr, (ParseError,
             Token::Semicolon => break,
             Token::Integer(i) => {
                 if matches!(last, Token::Integer(_) | Token::Ident) {
-                    return Err((ParseError::UnexpectedToken(Token::Integer(*i)), span));
+                    return Err((ParseError::UnexpectedToken(Token::Integer(0)), span));
                 }
-                out.push((Expr::Integer(*i), span.clone()));
+                out.push((Expr::Integer(*i as i128), span.clone()));
             },
             Token::Ident => {
-                if matches!(buf.peek().unwrap_or(&(Token::None, Span::default())).0, Token::RoBracketS) {
+                if matches!(last, Token::Integer(_) | Token::Ident) {
+                    return Err((ParseError::UnexpectedToken(Token::Ident), span));
+                } else if matches!(buf.peek().unwrap_or(&(Token::None, Span::default())).0, Token::RoBracketS) {
                     let (_, nspan) = buf.next().unwrap();
                     ops.push((Operator::FnCall(src[span.start..span.end].to_string()), Span { start: span.start, end: nspan.end }, false));
                     fn_args.push(if matches!(buf.peek().unwrap_or(&(Token::None, Span::default())).0, Token::RoBracketE) { 0 } else { 1 });
@@ -149,7 +151,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str) -> Result<AExpr, (ParseError,
             Token::Operator(o1) => {
                 let un = matches!(last, Token::Operator(_) | Token::None);
                 while let Some((o2, span, unary)) = ops.last() {
-                    if !(o2.percedence(*unary) > o1.percedence(un) || (o1.percedence(un) == o2.percedence(*unary) && o1.is_left())) {
+                    if matches!(o2, Operator::LBrack) || !(o2.percedence(*unary) > o1.percedence(un) || (o1.percedence(un) == o2.percedence(*unary) && o1.is_left())) {
                         break;
                     }
 
@@ -185,7 +187,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str) -> Result<AExpr, (ParseError,
 
         expr_span.start = expr_span.start.min(span.start);
         expr_span.end = expr_span.end.max(span.end);
-        last = tok.clone();
+        last = buf.current().unwrap().0.clone();
     }
 
 
@@ -199,7 +201,6 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str) -> Result<AExpr, (ParseError,
         pop_oper_to_out!(op, span, unary);
     }
 
-    println!("{out:#?}");
     if out.len() == 1 {
         Ok(out[0].clone())
     } else {

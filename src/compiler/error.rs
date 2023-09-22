@@ -33,7 +33,7 @@ impl CompilerError for ParseError {
         for el in ctx.source.lines().skip(i-1) {
             let spaces = span.start.checked_sub(ctx.cat[i-1]).unwrap_or(0);
             fin += &format!(
-                "\x1b[34m{i}{} |\x1b[0m {}\n\x1b[34m{} | \x1b[0;1;31m{}{}\x1b[0m\n",
+                "\x1b[34m{i}{} |\x1b[0m {}\n\x1b[34m{} | \x1b[0;1;33m{}{}\x1b[0m\n",
                 " ".repeat(chw - format!("{i}").len()),
                 el.trim_end(),
                 " ".repeat(chw),
