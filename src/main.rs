@@ -11,7 +11,9 @@ fn main() {
     let ast = parse(&mut pp, &f);
     match ast {
         Ok(ast) => println!("{ast:#?}"),
-        Err(err) => println!("{}", err.0.report(ErrorContext { filename, source: &f }, err.1)),
+        Err(err) => {
+            println!("{}", reports(err, filename, &f));
+        },
     }
 
     // while let Some(tok) = pp.next() {
