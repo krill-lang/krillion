@@ -8,6 +8,7 @@ pub enum Node {
         ident: String,
         expr: Option<AExpr>,
     },
+    Return(Option<AExpr>),
     Expr(AExpr),
 }
 
@@ -18,14 +19,18 @@ pub enum Expr {
     BiOp {
         lhs: Box<AExpr>,
         rhs: Box<AExpr>,
-        op: Operator
+        op: Box<Operator>,
     },
     UnOp {
         opr: Box<AExpr>,
-        op: Operator,
+        op: Box<Operator>,
     },
     FnCall {
-        id: String,
+        id: Box<AExpr>,
         op: Vec<AExpr>,
-    }
+    },
+    Index {
+        lhs: Box<AExpr>,
+        rhs: Box<AExpr>,
+    },
 }

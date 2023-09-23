@@ -40,17 +40,21 @@ impl<A> Buffer<A> {
 }
 
 use super::*;
-pub fn to_atoken_buf(lex: &mut Lexer<Token>) -> Result<Buffer<AToken>, Vec<Span>> {
+pub fn to_atoken_buf(lex: &mut Lexer<Token>) -> Result<Buffer<AToken>, Vec<ACompileError>> {
     let mut buf = Buffer::empty();
-    let mut err = Vec::new();
+    let mut err: Vec<ACompileError> = Vec::new();
 
     while let Some(t) = lex.next() {
         if t.is_err() {
-            err.push(lex.span());
+            err.push((Box::new(LexerError()), lex.span()));
         } else {
             buf.push((t.unwrap(), lex.span()));
         }
     }
 
-    if err.len() != 0 { Err(err) } else { Ok(buf) }
+    if err.len() != 0 {
+        Err(err)
+    } else {
+        Ok(buf)
+    }
 }

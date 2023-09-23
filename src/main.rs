@@ -1,22 +1,26 @@
 mod compiler;
 use compiler::*;
+use std::process::exit;
+
+macro_rules! unwrap_or_report {
+    ($i: expr, $filename: expr, $src: expr) => {
+        match $i {
+            Ok(i) => i,
+            Err(err) => {
+                print!("{}", reports(err, $filename, &$src));
+                exit(1);
+            },
+        }
+    };
+}
 
 fn main() {
     let filename = "test.funn++";
-    let f = std::fs::read_to_string(filename).unwrap();
-    let mut l = Token::lexer(&f);
-    let mut buf = to_atoken_buf(&mut l).unwrap();
-    let mut pp = preprocess(&mut buf);
+    let src = std::fs::read_to_string(filename).unwrap();
+    let mut l = Token::lexer(&src);
+    let mut buf = unwrap_or_report!(to_atoken_buf(&mut l), filename, src);
+    let mut pp = unwrap_or_report!(preprocess(&mut buf), filename, src);
 
-    let ast = parse(&mut pp, &f);
-    match ast {
-        Ok(ast) => println!("{ast:#?}"),
-        Err(err) => {
-            println!("{}", reports(err, filename, &f));
-        },
-    }
-
-    // while let Some(tok) = pp.next() {
-    //     println!("{tok:?}");
-    // }
+    let ast = unwrap_or_report!(parse(&mut pp, &src), filename, src);
+    println!("{ast:#?}");
 }

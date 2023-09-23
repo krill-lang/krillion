@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn preprocess(buf: &mut Buffer<AToken>) -> Buffer<AToken> {
+pub fn preprocess(buf: &mut Buffer<AToken>) -> Result<Buffer<AToken>, Vec<ACompileError>> {
     let mut new  = Buffer::empty();
     let mut last = Token::None;
     while let Some(tok) = buf.next() {
@@ -23,5 +23,6 @@ pub fn preprocess(buf: &mut Buffer<AToken>) -> Buffer<AToken> {
         }
         last = tok.0;
     }
-    new
+    
+    Ok(new)
 }

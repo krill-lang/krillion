@@ -1,6 +1,7 @@
 pub use logos::*;
+use super::*;
 
-#[derive(Debug, Clone, PartialEq, Logos)]
+#[derive(Debug, Clone, Logos)]
 #[logos(skip r"[\s]")]
 #[logos(skip r"//[^\n]*")]
 pub enum Token {
@@ -28,7 +29,7 @@ pub enum Token {
     CuBracketE,
 
     #[regex(r"(\+|\-|\*|/|%|&|\||\^|<<|>>)(=)?", callback = parse_operator)]
-    #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=|\.)", callback = parse_operator)]
+    #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=|\.|::)", callback = parse_operator)]
     Operator(Operator),
 
     #[token("var")]
@@ -49,19 +50,19 @@ pub enum Token {
     None
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Operator {
     Add, Sub, Mlt, Div, Mod,
     Assign, OpAssign(Box<Operator>),
 
-    LBrack,
+    RoBracketS, Index(AExpr),
     Eq, NE, GT, GE, LT, LE,
     BAnd, BOr, BXOr, Not,
     LAnd, LOr,
 
     LSh, RSh,
-    FnCall(String),
-    Of,
+    FnCall(AExpr),
+    Of, ScopeOf
 }
 
 impl Operator {
@@ -69,7 +70,11 @@ impl Operator {
         use Operator::*;
         if !unary {
             match self {
-                LBrack | FnCall(_) | Of
+                ScopeOf | Of
+                    => 15,
+                Index(_)
+                    => 14,
+                RoBracketS | FnCall(_)
                     => 13,
                 Mlt | Div | Mod
                     => 11,
@@ -137,6 +142,7 @@ fn parse_operator(lex: &mut Lexer<Token>) -> Operator {
         "&&" => LAnd,
         "||" => LOr,
         "."  => Of,
+        "::" => ScopeOf,
 
         _ => if s.chars().last().unwrap() == '=' && s.len() > 1 {
             Operator::OpAssign(Box::new(_parse_oper(&s[0..s.len()-1])))
