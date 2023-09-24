@@ -1,4 +1,6 @@
+#![allow(unknown_lints)]
 #![allow(cast_ref_to_mut)]
+#![allow(invalid_reference_casting)]
 
 mod compiler;
 use compiler::*;

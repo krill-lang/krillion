@@ -95,6 +95,7 @@ pub enum ParseError {
     UnstartedBracket,
     UnendedBracket,
     UnendedFnCall,
+    UnendedScope,
     BracketNotMatch,
     ExprParseError,
     RanOutOperands,
@@ -104,14 +105,15 @@ pub enum ParseError {
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            ParseError::UnendedFnCall  => write!(f, "function call have no ending bracket"),
-            ParseError::UnendedBracket => write!(f, "starting bracket have no matching ending bracket"),
-            ParseError::BracketNotMatch => write!(f, "starting bracket does not match ending bracket"),
+            ParseError::UnexpectedToken => write!(f, "unexpected token"),
             ParseError::UnstartedBracket => write!(f, "ending bracket have no matching starting bracket"),
+            ParseError::UnendedBracket => write!(f, "starting bracket have no matching ending bracket"),
+            ParseError::UnendedFnCall  => write!(f, "function call have no ending bracket"),
+            ParseError::UnendedScope => write!(f, "scope is not ended"),
+            ParseError::BracketNotMatch => write!(f, "starting bracket does not match ending bracket"),
+            ParseError::ExprParseError => write!(f, "unknown expression parsing error"),
             ParseError::RanOutOperands => write!(f, "ran out of operands while parsing expression"),
             ParseError::RanOutTokens => write!(f, "ran out of tokens"),
-            ParseError::UnexpectedToken => write!(f, "unexpected token"),
-            ParseError::ExprParseError => write!(f, "unknown expression parsing error"),
         }
     }
 }
@@ -119,7 +121,7 @@ impl std::fmt::Display for ParseError {
 impl ErrorTips for ParseError {
     fn consider<'a>(&self, _ctx: &ErrorContext<'a>, _span: Span) -> Option<String> {
         match self {
-            ParseError::UnendedFnCall | ParseError::UnendedBracket
+            ParseError::UnendedFnCall | ParseError::UnendedBracket | ParseError::UnendedScope
                 => Some("add a ending bracket".to_string()),
             ParseError::UnstartedBracket
                 => Some("add a starting bracket".to_string()),

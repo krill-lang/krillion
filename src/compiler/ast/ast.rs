@@ -20,13 +20,34 @@ macro_rules! wrap_option {
 
 
 pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AST, Vec<ACompileError>> {
-    let mut _ast = AST::new();
-    let mut ast = vec![(&mut _ast, Span::default())];
+    let mut ast  = AST::new();
+    let mut _span1 = Span::default();
+    let _span2 = Span::default();
 
     let mut comp_errs: Vec<ACompileError> = Vec::new();
 
+    fn as_mut<A>(a: &A) -> &mut A {
+        unsafe { &mut *(a as *const A as *mut A) }
+    }
+
+    fn get_ast<'a>(ast: &'a AST, span1: &'a Span, span2: Span) -> (&'a mut AST, &'a mut Span, Span, Option<&'a mut Node>, usize) {
+        let mut scope = (ast, span1, span2, None);
+        let mut depth = 1;
+        while let Some(a) = match scope.0.last() {
+            Some((
+                Node::FunctionDeclare { body, span: span2, ended: false, .. } |
+                Node::Scope { body, span: span2, ended: false }
+            , span1))
+                => Some((body, span1, span2.clone(), Some(as_mut(&scope.0.last().unwrap().0)))),
+            _ => None
+        } { scope = a; depth += 1; }
+        (as_mut(scope.0), as_mut(scope.1), scope.2, scope.3, depth)
+    }
+
     macro_rules! ast {
-        () => { ast.last_mut().unwrap() };
+        () => {
+            get_ast(&ast, &_span1, _span2.clone())
+        };
     }
 
     macro_rules! ast_push {
@@ -41,15 +62,8 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AST, Vec<ACompileErr
             ($expr: expr) => {
                 match $expr {
                     Err((e, s)) => {
-                        comp_errs.push((Box::new(e), s));
-
                         buf.rewind();
-                        while let Some((t, _)) = buf.next() {
-                            if matches!(t, Token::Semicolon | Token::CuBracketS) {
-                                break;
-                            }
-                        }
-                        continue 'main_loop;
+                        error!(e, s);
                     },
                     Ok(a) => a,
                 }
@@ -108,6 +122,7 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AST, Vec<ACompileErr
                 let (expr, end) = match buf.next() {
                     Some((Token::Semicolon, _)) => (None, buf.current().unwrap().1.start),
                     Some((_, _)) => {
+                        buf.rewind();
                         let expr = consider_error!(parse_expr(buf, src));
                         (Some(expr), buf.current().unwrap().1.start)
                     },
@@ -145,19 +160,27 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AST, Vec<ACompileErr
                 }
 
                 assert_token!(CuBracketS);
-                let a = AST::new();
-                let mut_a = unsafe { &mut *(&a as *const AST as *mut AST) };
-                let span = Span { start: span.start, end: en };
-                ast_push!(Node::FunctionDeclare { ident: (ident, idspan), params, body: a }, span);
-                ast.push((mut_a, span));
-
+                let body = AST::new();
+                let span = Span { start: span.start, end: buf.current().unwrap().1.end };
+                ast_push!(Node::FunctionDeclare { ident: (ident, idspan), params, body, ended: false, span: span.clone() }, span);
+            },
+            Token::CuBracketS => {
+                let body = AST::new();
+                ast_push!(Node::Scope { body, ended: false, span: span.clone() }, span);
             },
             Token::CuBracketE => {
-                if ast.len() == 1 {
-                    error!(ParseError::UnstartedBracket, span);
-                } else {
-                    ast!().1.end = span.end;
-                    ast.pop();
+                match ast!() {
+                    (_, sp, _, Some(
+                        Node::FunctionDeclare { ended, .. } |
+                        Node::Scope { ended, .. }
+                    ), _) => {
+                        sp.end = span.end;
+                        *ended = true;
+                    },
+                    (_, _, _, None, _) => {
+                        error!(ParseError::UnstartedBracket, span);
+                    },
+                    _ => unreachable!(),
                 }
             },
             _ => {
@@ -169,12 +192,12 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AST, Vec<ACompileErr
         }
     }
 
-    if ast.len() != 1 {
-        comp_errs.push((Box::new(ParseError::UnendedBracket), ast!().1.clone()));
+    if ast!().4 != 1 {
+        comp_errs.push((Box::new(ParseError::UnendedScope), ast!().2.clone()));
     }
 
     if comp_errs.len() == 0 {
-        Ok(_ast)
+        Ok(ast)
     } else {
         Err(comp_errs)
     }

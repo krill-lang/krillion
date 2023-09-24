@@ -10,11 +10,17 @@ pub enum Node {
     },
     Return(Option<AExpr>),
     Expr(AExpr),
-    Scope(AST),
+    Scope {
+        body: AST,
+        span: Span,
+        ended: bool,
+    },
     FunctionDeclare {
         ident: AString,
         params: Vec<(AString, AType, Span)>,
-        body: AST
+        body: AST,
+        span: Span,
+        ended: bool,
     },
 }
 
