@@ -28,6 +28,8 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AST, Vec<ACompileErr
             match $expr {
                 Err((e, s)) => {
                     comp_errs.push((Box::new(e), s));
+
+                    buf.rewind();
                     while let Some((t, _)) = buf.next() {
                         if matches!(t, Token::Semicolon) {
                             break;
@@ -174,15 +176,17 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str) -> Result<AExpr, (ParseError,
         let span = span.clone();
 
         match &tok {
-            Token::Semicolon => break,
+            Token::Semicolon => {
+                break
+            },
             Token::Integer(i) => {
-                if matches!(last, Token::Integer(_) | Token::Ident) {
+                if matches!(last, Token::Integer(_) | Token::Ident | Token::RoBracketE | Token::SqBracketE) {
                     return Err((ParseError::UnexpectedToken, span));
                 }
                 out.push((Expr::Integer(*i as i128), span.clone()));
             },
             Token::Ident => {
-                if matches!(last, Token::Integer(_) | Token::Ident) {
+                if matches!(last, Token::Integer(_) | Token::Ident | Token::RoBracketE | Token::SqBracketE) {
                     return Err((ParseError::UnexpectedToken, span));
                 } else {
                     out.push((Expr::Ident(src[span.start..span.end].to_string()), span.clone()))
@@ -272,7 +276,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str) -> Result<AExpr, (ParseError,
 
 
     while let Some((op, span, unary)) = ops.last().cloned() {
-       if matches!(op, Operator::RoBracketS | Operator::Index(_)) {
+        if matches!(op, Operator::RoBracketS | Operator::Index(_)) {
             return Err((ParseError::UnendedBracket, span.clone()));
         } else if matches!(op, Operator::FnCall(_)) {
             return Err((ParseError::UnendedFnCall, span.clone()));

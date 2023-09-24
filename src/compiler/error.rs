@@ -48,10 +48,23 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
 
         for el in ctx.source.lines().skip(i-1) {
             let spaces = span.start.checked_sub(ctx.cat[i-1]).unwrap_or(0);
+
             fin += &format!(
-                "\x1b[1;34m{i}{} \u{2502}\x1b[0m {}\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m\n",
+                "\x1b[1;34m{i}{} \u{2502}\x1b[0m ",
                 " ".repeat(chw - format!("{i}").len()),
-                el.trim_end(),
+            );
+
+            let mut hl = HighlightToken::lexer(el.trim_end());
+            let mut hl = match to_atoken_buf(&mut hl) {
+                Ok(a) => a, _ => unreachable!()
+            };
+            while let Some((tok, span)) = hl.next().cloned() {
+                let src = &el[span.start..span.end];
+                fin += &tok.highlight(hl.peek().map(|(t, _)| t), src);
+            }
+
+            fin += &format!(
+                "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m\n",
                 " ".repeat(chw),
                 " ".repeat(spaces),
                 "^".repeat(el.trim_end().len()-spaces-ctx.cat.get(i).unwrap_or(&0).checked_sub(span.end).unwrap_or(0)+1),
@@ -104,6 +117,8 @@ impl ErrorTips for ParseError {
         match self {
             ParseError::UnendedFnCall | ParseError::UnendedBracket
                 => Some("add a ending bracket".to_string()),
+            ParseError::UnstartedBracket
+                => Some("add a starting bracket".to_string()),
             _ => None,
         }
     }

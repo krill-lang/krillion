@@ -40,7 +40,7 @@ impl<A> Buffer<A> {
 }
 
 use super::*;
-pub fn to_atoken_buf(lex: &mut Lexer<Token>) -> Result<Buffer<AToken>, Vec<ACompileError>> {
+pub fn to_atoken_buf<'a, A: Logos<'a>>(lex: &'a mut Lexer<'a, A>) -> Result<Buffer<(A, Span)>, Vec<ACompileError>> {
     let mut buf = Buffer::empty();
     let mut err: Vec<ACompileError> = Vec::new();
 

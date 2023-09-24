@@ -9,5 +9,7 @@ pub use ast::*;
 #[macro_use]
 pub mod error;
 pub use error::*;
+pub mod highlight;
+pub use highlight::*;
 
 pub type AToken = (Token, Span);
