@@ -40,6 +40,8 @@ pub enum Token {
     Continue,
     #[token("return")]
     Return,
+    #[token("func")]
+    Func,
 
     #[token(",")]
     Comma,

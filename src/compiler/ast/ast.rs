@@ -20,85 +20,215 @@ macro_rules! wrap_option {
 
 
 pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AST, Vec<ACompileError>> {
-    let mut ast = AST::new();
+    let mut _ast = AST::new();
+    let mut ast = vec![(&mut _ast, Span::default())];
+
     let mut comp_errs: Vec<ACompileError> = Vec::new();
 
-    macro_rules! consider_expr_error {
-        ($expr: expr) => {
-            match $expr {
-                Err((e, s)) => {
-                    comp_errs.push((Box::new(e), s));
-
-                    buf.rewind();
-                    while let Some((t, _)) = buf.next() {
-                        if matches!(t, Token::Semicolon) {
-                            break;
-                        }
-                    }
-                    continue;
-                },
-                Ok(a) => a,
-            }
-        };
+    macro_rules! ast {
+        () => { ast.last_mut().unwrap() };
     }
 
-    macro_rules! error {
-        ($r: expr, $s: expr) => {
-            {
+    macro_rules! ast_push {
+        ($val: expr, $span: expr) => {
+            ast!().0.push(($val, $span.clone()));
+            ast!().1.end = $span.end;
+        }
+    }
+
+    'main_loop: while let Some((tok, span)) = buf.next().cloned() {
+        macro_rules! consider_error {
+            ($expr: expr) => {
+                match $expr {
+                    Err((e, s)) => {
+                        comp_errs.push((Box::new(e), s));
+
+                        buf.rewind();
+                        while let Some((t, _)) = buf.next() {
+                            if matches!(t, Token::Semicolon | Token::CuBracketS) {
+                                break;
+                            }
+                        }
+                        continue 'main_loop;
+                    },
+                    Ok(a) => a,
+                }
+            };
+        }
+
+        macro_rules! error {
+            ($r: expr, $s: expr) => {{
                 comp_errs.push((Box::new($r), $s));
-                continue;
+                while let Some((t, _)) = buf.next() {
+                    if matches!(t, Token::Semicolon | Token::CuBracketS) {
+                        break;
+                    }
+                }
+                continue 'main_loop;
+            }};
+        }
+
+        macro_rules! unwrap_ident {
+            ($span: expr) => {
+                match buf.next() {
+                    Some((Token::Ident, s)) => (src[s.start..s.end].to_string(), s.clone()),
+                    Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone()),
+                    None => error!(ParseError::RanOutTokens, $span),
+                }
+            };
+        }
+
+        macro_rules! assert_token {
+            ($intended: ident) => {
+                match buf.next() {
+                    Some((Token::$intended, _)) => (),
+                    Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone()),
+                    None => error!(ParseError::RanOutTokens, buf.prev().unwrap().1.clone()),
+                }
+            };
+        }
+
+        match tok {
+            Token::Semicolon => {},
+            Token::Var => {
+                let (ident, idspan) = unwrap_ident!(span);
+                let (expr, end) = match buf.next() {
+                    Some((Token::Operator(Operator::Assign), _)) => {
+                        let expr = consider_error!(parse_expr(buf, src));
+                        (Some(expr), buf.current().unwrap().1.start)
+                    },
+                    Some((Token::Semicolon, _)) => (None, buf.current().unwrap().1.start),
+                    Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone()),
+                    None => error!(ParseError::RanOutTokens, span),
+                };
+                let s = Span { start: span.start, end };
+                ast_push!(Node::VarDeclare { ident: (ident, idspan), expr }, s);
+            },
+            Token::Return => {
+                let (expr, end) = match buf.next() {
+                    Some((Token::Semicolon, _)) => (None, buf.current().unwrap().1.start),
+                    Some((_, _)) => {
+                        let expr = consider_error!(parse_expr(buf, src));
+                        (Some(expr), buf.current().unwrap().1.start)
+                    },
+                    None => error!(ParseError::RanOutTokens, span),
+                };
+                let span = Span { start: span.start, end };
+                ast_push!(Node::Return(expr), span);
+            },
+            Token::Func => {
+                let (ident, idspan) = unwrap_ident!(span);
+                assert_token!(RoBracketS);
+
+                let mut params = Vec::new();
+                let mut en = 0;
+                while let Some((tok, sp)) = buf.next().cloned() {
+                    match tok {
+                        Token::RoBracketE => {
+                            en = sp.end;
+                            break
+                        },
+                        Token::Ident => {
+                            let id = &src[sp.start..sp.end];
+                            let typ = consider_error!(parse_type(buf, src));
+                            let end = typ.1.end;
+                            params.push(((id.to_string(), sp.clone()), typ, Span { start: sp.start, end }));
+
+                            match buf.peek() {
+                                Some((Token::Comma, _)) => buf.idx += 1,
+                                None => error!(ParseError::RanOutTokens, buf.prev().unwrap().1.clone()),
+                                _ => ()
+                            }
+                        },
+                        _ => error!(ParseError::UnexpectedToken, sp.clone()),
+                    }
+                }
+
+                assert_token!(CuBracketS);
+                let a = AST::new();
+                let mut_a = unsafe { &mut *(&a as *const AST as *mut AST) };
+                let span = Span { start: span.start, end: en };
+                ast_push!(Node::FunctionDeclare { ident: (ident, idspan), params, body: a }, span);
+                ast.push((mut_a, span));
+
+            },
+            Token::CuBracketE => {
+                if ast.len() == 1 {
+                    error!(ParseError::UnstartedBracket, span);
+                } else {
+                    ast!().1.end = span.end;
+                    ast.pop();
+                }
+            },
+            _ => {
+                buf.rewind();
+                let expr = consider_error!(parse_expr(buf, src));
+                let span = expr.1.clone();
+                ast_push!(Node::Expr(expr), Span { start: span.start, end: buf.current().unwrap().1.start });
+            },
+        }
+    }
+
+    if ast.len() != 1 {
+        comp_errs.push((Box::new(ParseError::UnendedBracket), ast!().1.clone()));
+    }
+
+    if comp_errs.len() == 0 {
+        Ok(_ast)
+    } else {
+        Err(comp_errs)
+    }
+}
+
+fn parse_type(buf: &mut Buffer<AToken>, src: &str) -> Result<AType, (ParseError, Span)> {
+    let mut typ_opers: Vec<(TypeOperators, Span)> = Vec::new();
+
+    macro_rules! assert_token {
+        ($intended: ident) => {
+            match buf.next() {
+                Some((Token::$intended, _)) => (),
+                Some((_, s)) => return Err((ParseError::UnexpectedToken, s.clone())),
+                None => return Err((ParseError::RanOutTokens, buf.prev().unwrap().1.clone())),
             }
         };
     }
 
     while let Some((tok, span)) = buf.next().cloned() {
         match tok {
-            Token::Semicolon => {},
-            Token::Var => {
-                let ident = match buf.next() {
-                    Some((Token::Ident, s)) => src[s.start..s.end].to_string(),
-                    Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone()),
-                    None => error!(ParseError::RanOutTokens, span),
-                };
-                let (expr, end) = match buf.next() {
-                    Some((Token::Operator(Operator::Assign), _)) => {
-                        let expr = consider_expr_error!(parse_expr(buf, src));
-                        (Some(expr), buf.current().unwrap().1.start)
+            Token::Ident => {
+                let mut typ = (Type::from_str(&src[span.start..span.end]), span);
+                for (op, sp) in typ_opers.iter().rev() {
+                    match op {
+                        TypeOperators::Pointer => typ = (Type::Pointer(Box::new(typ)), sp.clone()),
+                        TypeOperators::Slice => typ = (Type::Slice(Box::new(typ)), sp.clone()),
+                        TypeOperators::Array(s) => typ = (Type::Array(Box::new(typ), *s), sp.clone()),
+                    }
+                }
+                return Ok(typ)
+            },
+            Token::Operator(Operator::BAnd) => typ_opers.push((TypeOperators::Pointer, span)),
+            Token::Operator(Operator::LAnd) => {
+                typ_opers.push((TypeOperators::Pointer, Span { start: span.start, end: span.start+1 }));
+                typ_opers.push((TypeOperators::Pointer, Span { start: span.start+1, end: span.end }));
+            },
+            Token::SqBracketS => {
+                match buf.next() {
+                    Some((Token::SqBracketE, sp)) => {
+                        typ_opers.push((TypeOperators::Slice, Span { start: span.start, end: sp.end }));
                     },
-                    Some((Token::Semicolon, _)) => (None, buf.current().unwrap().1.start),
-                    Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone()),
-                    None => error!(ParseError::RanOutTokens, span),
-                };
-                let span = Span { start: span.start, end };
-                ast.push((Node::VarDeclare { ident, expr }, span));
-            },
-            Token::Return => {
-                let (expr, end) = match buf.next() {
-                    Some((Token::Operator(Operator::Assign), _)) => {
-                        let expr = consider_expr_error!(parse_expr(buf, src));
-                        (Some(expr), buf.current().unwrap().1.start)
+                    Some((Token::Integer(i), sp)) => {
+                        typ_opers.push((TypeOperators::Array(*i), Span { start: span.start, end: sp.end }));
+                        assert_token!(SqBracketE);
                     },
-                    Some((Token::Semicolon, _)) => (None, buf.current().unwrap().1.start),
-                    Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone()),
-                    None => error!(ParseError::RanOutTokens, span),
-                };
-                let span = Span { start: span.start, end };
-                ast.push((Node::Return(expr), span));
+                    Some((_, sp)) => return Err((ParseError::UnexpectedToken, sp.clone())),
+                    None => return Err((ParseError::RanOutTokens, buf.prev().unwrap().1.clone())),
+                }
             },
-            _ => {
-                buf.rewind();
-                let expr = consider_expr_error!(parse_expr(buf, src));
-                let span = expr.1.clone();
-                ast.push((Node::Expr(expr), Span { start: span.start, end: buf.current().unwrap().1.start }));
-            },
+            _ => return Err((ParseError::UnexpectedToken, span)),
         }
     }
 
-    if comp_errs.len() == 0 {
-        Ok(ast)
-    } else {
-        Err(comp_errs)
-    }
+    Err((ParseError::RanOutTokens, buf.prev().unwrap().1.clone()))
 }
 
 fn parse_expr(buf: &mut Buffer<AToken>, src: &str) -> Result<AExpr, (ParseError, Span)> {
@@ -266,7 +396,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str) -> Result<AExpr, (ParseError,
                     return Err((ParseError::UnstartedBracket, span))
                 }
             },
-            _ => todo!("{tok:?}"),
+            _ => return Err((ParseError::UnexpectedToken, span)),
         }
 
         expr_span.start = expr_span.start.min(span.start);

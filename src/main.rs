@@ -1,3 +1,5 @@
+#![allow(cast_ref_to_mut)]
+
 mod compiler;
 use compiler::*;
 mod args;

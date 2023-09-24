@@ -58,16 +58,20 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
             let mut hl = match to_atoken_buf(&mut hl) {
                 Ok(a) => a, _ => unreachable!()
             };
+
+            let mut tabs = 0;
             while let Some((tok, span)) = hl.next().cloned() {
                 let src = &el[span.start..span.end];
-                fin += &tok.highlight(hl.peek().map(|(t, _)| t), src);
+                tabs += src.matches('\t').count();
+                let src = src.replace("\t", "    ");
+                fin += &tok.highlight(hl.peek().map(|(t, _)| t), &src);
             }
 
             fin += &format!(
                 "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m\n",
                 " ".repeat(chw),
-                " ".repeat(spaces),
-                "^".repeat(el.trim_end().len()-spaces-ctx.cat.get(i).unwrap_or(&0).checked_sub(span.end).unwrap_or(0)+1),
+                " ".repeat(spaces+tabs*3),
+                "^".repeat(el.len()-spaces-ctx.cat.get(i).unwrap_or(&0).checked_sub(span.end).unwrap_or(0)+1),
             );
 
             if i >= end {

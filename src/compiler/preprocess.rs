@@ -9,7 +9,7 @@ pub fn preprocess(buf: &mut Buffer<AToken>) -> Result<Buffer<AToken>, Vec<ACompi
             if matches!(
                 last,
                 Token::Ident | Token::Integer(_) |
-                Token::Break | Token::Continue |
+                Token::Break | Token::Continue | Token::Return |
                 Token::RoBracketE | Token::SqBracketE |
                 Token::CuBracketE
             ) && !matches!(

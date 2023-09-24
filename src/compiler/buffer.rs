@@ -30,6 +30,10 @@ impl<A> Buffer<A> {
         self.buf.get(self.idx-1)
     }
 
+    pub fn prev(&self) -> Option<&A> {
+        self.buf.get(self.idx-2)
+    }
+
     pub fn rewind(&mut self) {
         self.idx -= 1;
     }

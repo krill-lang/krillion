@@ -29,6 +29,7 @@ pub enum HighlightToken {
     #[token("break")]
     #[token("continue")]
     #[token("return")]
+    #[token("func")]
     Keyword,
 
     #[token(",")]
