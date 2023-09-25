@@ -1,6 +1,6 @@
-func main(argc int, argv &str) {
+fn main(argc int, argv &str) {
 	{
-		var a = 10
+		let a = 10
 	}
 	return 69
 }

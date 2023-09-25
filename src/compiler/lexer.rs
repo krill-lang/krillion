@@ -32,16 +32,16 @@ pub enum Token {
     #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=|\.|::)", callback = parse_operator)]
     Operator(Operator),
 
-    #[token("var")]
-    Var,
+    #[token("let")]
+    Let,
     #[token("break")]
     Break,
     #[token("continue")]
     Continue,
     #[token("return")]
     Return,
-    #[token("func")]
-    Func,
+    #[token("fn")]
+    Fn,
 
     #[token(",")]
     Comma,

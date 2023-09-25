@@ -20,17 +20,17 @@ macro_rules! wrap_option {
 
 
 pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AST, Vec<ACompileError>> {
-    let mut ast  = AST::new();
+    let ast    = AST::new();
     let mut _span1 = Span::default();
     let _span2 = Span::default();
 
     let mut comp_errs: Vec<ACompileError> = Vec::new();
 
-    fn as_mut<A>(a: &A) -> &mut A {
-        unsafe { &mut *(a as *const A as *mut A) }
-    }
-
     fn get_ast<'a>(ast: &'a AST, span1: &'a Span, span2: Span) -> (&'a mut AST, &'a mut Span, Span, Option<&'a mut Node>, usize) {
+        fn as_mut<A>(a: &A) -> &mut A {
+            unsafe { &mut *(a as *const A as *mut A) }
+        }
+
         let mut scope = (ast, span1, span2, None);
         let mut depth = 1;
         while let Some(a) = match scope.0.last() {
@@ -104,7 +104,7 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AST, Vec<ACompileErr
 
         match tok {
             Token::Semicolon => {},
-            Token::Var => {
+            Token::Let => {
                 let (ident, idspan) = unwrap_ident!(span);
                 let (expr, end) = match buf.next() {
                     Some((Token::Operator(Operator::Assign), _)) => {
@@ -131,16 +131,14 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AST, Vec<ACompileErr
                 let span = Span { start: span.start, end };
                 ast_push!(Node::Return(expr), span);
             },
-            Token::Func => {
+            Token::Fn => {
                 let (ident, idspan) = unwrap_ident!(span);
                 assert_token!(RoBracketS);
 
                 let mut params = Vec::new();
-                let mut en = 0;
                 while let Some((tok, sp)) = buf.next().cloned() {
                     match tok {
                         Token::RoBracketE => {
-                            en = sp.end;
                             break
                         },
                         Token::Ident => {

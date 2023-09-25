@@ -25,11 +25,11 @@ pub enum HighlightToken {
     #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=|\.|::)")]
     Operator,
 
-    #[token("var")]
+    #[token("let")]
     #[token("break")]
     #[token("continue")]
     #[token("return")]
-    #[token("func")]
+    #[token("fn")]
     Keyword,
 
     #[token(",")]
