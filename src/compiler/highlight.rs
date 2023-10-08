@@ -8,12 +8,20 @@ pub enum HighlightToken {
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", priority = 0)]
     Ident,
 
+    #[token("str")]
+    #[token("int")]
+    #[token("uint")]
+    #[regex(r"[iu](8|16|32|64|128)")]
+    BuiltIn,
+
     #[token(";")]
     #[regex(r"//[^\n]*")]
     #[regex(r"[\s]")]
     Unused,
 
     #[token("(")]
+    RoBracketS,
+
     #[token(")")]
     #[token("[")]
     #[token("]")]
@@ -41,11 +49,11 @@ impl HighlightToken {
         use HighlightToken::*;
         String::new() + "\x1b[" +
         match (self, next) {
-            (Ident, Some(Brackets))
+            (Ident, Some(RoBracketS))
                 => "34",
-            (Ident | Brackets | Comma, _)
+            (Ident | RoBracketS | Brackets | Comma, _)
                 => "0",
-            (Integer, _)
+            (Integer | BuiltIn, _)
                 => "33",
             (Keyword | Operator, _)
                 => "35",

@@ -362,7 +362,9 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str) -> Result<AExpr, (ParseError,
 
                     pop_oper_to_out_no_fn!(op, span, unary);
                 }
-                *wrap_option!(fn_args.last_mut(), (ParseError::UnexpectedToken, span.clone()))? += 1;
+                if !matches!(buf.peek(), Some((Token::RoBracketE, _))) {
+                    *wrap_option!(fn_args.last_mut(), (ParseError::UnexpectedToken, span.clone()))? += 1;
+                }
             },
             Token::RoBracketS => {
                 if matches!(last, Token::Integer(_)) {

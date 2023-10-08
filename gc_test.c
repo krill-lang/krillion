@@ -25,7 +25,7 @@ GCGraph   graph;
 bool* walked;
 
 void walk(GCGraph graph) {
-	for (int i = 0; i < graph.size; i++) {
+	for (uint32_t i = 0; i < graph.size; i++) {
 		if (graph.child[i].id != 0) {
 			if (walked[graph.child[i].id] == false) {
 				walked[graph.child[i].id] = true;
@@ -36,14 +36,14 @@ void walk(GCGraph graph) {
 }
 
 void gc() {
-	auto start = clock();
+	clock_t start = clock();
 	// mark
 	memset(walked, false, sizeof(bool)*objects_count);
 	walk(graph);
 
 	// sweep
-	for (int i = 0; i < objects_count; i++) {
-		if (walked[i] == false) {
+	for (uint32_t i = 0; i < objects_count; i++) {
+		if (walked[i+1] == false) {
 			if (objects[i].pointer != NULL) {
 				printf("Freed %d bytes on ID %d\n", objects[i].size, i+1);
 				free(objects[i].pointer);
@@ -52,7 +52,7 @@ void gc() {
 		}
 	}
 
-	auto end = clock();
+	clock_t end = clock();
 	printf("GC Time: %.5f\n", (float) (end-start) / (float) (CLOCKS_PER_SEC));
 }
 
@@ -90,7 +90,7 @@ void* new(uint32_t size) {
 
 GCGraph* graph_append(GCGraph* g, uint32_t id) {
 	for (uint32_t i = 0; i < g->size; i++) {
-		if (g->child[i].child == NULL && g->child[i].id != 0) {
+		if (g->child[i].child == NULL && g->child[i].id == 0) {
 			g->child[i].id = id;
 			g->child[i].child = NULL;
 			g->child[i].size = 0;
@@ -98,15 +98,16 @@ GCGraph* graph_append(GCGraph* g, uint32_t id) {
 		}
 	}
 
-	g->child = realloc(g->child, sizeof(GCGraph) * ++g->size);
-	g->child[g->size-1].id = id;
-	g->child[g->size-1].child = NULL;
-	g->child[g->size-1].size = 0;
+	g->child = realloc(g->child, sizeof(GCGraph) * g->size+1);
+	g->child[g->size].id = id;
+	g->child[g->size].child = NULL;
+	g->child[g->size].size = 0;
+	g->size++;
 	return &g->child[g->size-1];
 }
 
 void graph_free(GCGraph* g) {
-	for (int i = 0; i < g->size; i++) {
+	for (uint32_t i = 0; i < g->size; i++) {
 		if (g->child != NULL) graph_free(&g->child[i]);
 	}
 	free(g->child);
@@ -121,21 +122,21 @@ int main() {
 	uint32_t id_1 = id;
 	int* ptr_2 = new(sizeof(int));
 	uint32_t id_2 = id;
-	int* ptr_3 = new(sizeof(int));
+	int** ptr_3 = new(sizeof(int*));
 	uint32_t id_3 = id;
 
 	*ptr_1 = 69;
 	*ptr_2 = 420;
-	*ptr_3 = 0xdeadbeef;
+	*ptr_3 = ptr_2;
 
-	// Root -> ID 2 -> ID 3
+	// Root -> ID 3 -> ID 2
 
-	GCGraph* graph_2 = graph_append(&graph, id_2);
-	GCGraph* graph_3 = graph_append(&graph_2, id_3);
+	GCGraph* graph_3 = graph_append(&graph, id_3);
+	GCGraph* graph_2 = graph_append(graph_3, id_2);
 
 	gc();
 
-	graph_free(graph_2);
+	graph_free(graph_3);
 
 	gc();
 }

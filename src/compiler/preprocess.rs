@@ -14,7 +14,8 @@ pub fn preprocess(buf: &mut Buffer<AToken>) -> Result<Buffer<AToken>, Vec<ACompi
                 Token::CuBracketE
             ) && !matches!(
                 buf.peek().unwrap_or(&(Token::None, Span::default())).0,
-                Token::Operator(_)
+                Token::Operator(_) |
+                Token::RoBracketE,
             ) {
                 new.push((Token::Semicolon, tok.1));
             }

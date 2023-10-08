@@ -1,6 +1,4 @@
 fn main(argc int, argv &str) {
-	{
-		let a = 10
-	}
+	let syntax error
+	test(12
 	return 69
-}

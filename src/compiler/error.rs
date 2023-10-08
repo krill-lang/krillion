@@ -121,6 +121,8 @@ impl std::fmt::Display for ParseError {
 impl ErrorTips for ParseError {
     fn consider<'a>(&self, _ctx: &ErrorContext<'a>, _span: Span) -> Option<String> {
         match self {
+            ParseError::UnexpectedToken
+                => Some("add a semicolon to end the current statement".to_string()),
             ParseError::UnendedFnCall | ParseError::UnendedBracket | ParseError::UnendedScope
                 => Some("add a ending bracket".to_string()),
             ParseError::UnstartedBracket
