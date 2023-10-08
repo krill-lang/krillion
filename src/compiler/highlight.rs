@@ -3,9 +3,9 @@ use super::*;
 
 #[derive(Debug, Clone, Logos)]
 pub enum HighlightToken {
-    #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)")]
+    #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)", priority = 2)]
     Integer,
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", priority = 0)]
+    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", priority = 1)]
     Ident,
 
     #[token("str")]
@@ -42,6 +42,9 @@ pub enum HighlightToken {
 
     #[token(",")]
     Comma,
+
+    #[regex(r".", priority = 0)]
+    Unknown,
 }
 
 impl HighlightToken {
@@ -51,7 +54,7 @@ impl HighlightToken {
         match (self, next) {
             (Ident, Some(RoBracketS))
                 => "34",
-            (Ident | RoBracketS | Brackets | Comma, _)
+            (Ident | RoBracketS | Brackets | Comma | Unknown, _)
                 => "0",
             (Integer | BuiltIn, _)
                 => "33",

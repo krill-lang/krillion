@@ -40,7 +40,7 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
         let end = ctx.source[..span.end].matches('\n').count()+1;
         let chw = format!("{end}").len();
         let mut fin = format!(
-            "\x1b[1;31mError:\x1b[0;1m {self}\n\x1b[1;34m{} \u{250c}\u{2500}\x1b[0;1m In: \x1b[0m{}\n",
+            "\x1b[1;31mError: {self}\n\x1b[1;34m{} \u{250c}\u{2500}\x1b[0;1m In: \x1b[0m{}\n",
             " ".repeat(chw),
             ctx.filename
         );
