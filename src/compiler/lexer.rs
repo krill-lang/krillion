@@ -34,14 +34,25 @@ pub enum Token {
 
     #[token("let")]
     Let,
+
+    #[token("fn")]
+    Fn,
+    #[token("return")]
+    Return,
+
+    #[token("if")]
+    If,
+    #[token("else")]
+    Else,
+
+    #[token("for")]
+    For,
+    #[token("while")]
+    While,
     #[token("break")]
     Break,
     #[token("continue")]
     Continue,
-    #[token("return")]
-    Return,
-    #[token("fn")]
-    Fn,
 
     #[token(",")]
     Comma,
@@ -110,18 +121,14 @@ impl Operator {
             }
         }
     }
-    pub fn is_left(&self) -> bool {
+    pub const fn is_left(&self) -> bool {
         use Operator::*;
-        match self {
-            Assign | OpAssign(_)
-                => false,
-            _ => true,
-        }
+        !matches!(self, Assign | OpAssign(_))
     }
 }
 
-fn parse_int(lex: &mut Lexer<Token>) -> u128 {
-    let s = lex.slice().replace("_", "");
+fn parse_int(lex: &Lexer<Token>) -> u128 {
+    let s = lex.slice().replace('_', "");
     match s.chars().nth(1).unwrap_or(' ') {
         'x' => u128::from_str_radix(&s[2..], 16),
         'b' => u128::from_str_radix(&s[2..], 2),
@@ -129,7 +136,7 @@ fn parse_int(lex: &mut Lexer<Token>) -> u128 {
     }.unwrap()
 }
 
-fn parse_operator(lex: &mut Lexer<Token>) -> Operator {
+fn parse_operator(lex: &Lexer<Token>) -> Operator {
     let s = lex.slice();
 
     use Operator::*;
@@ -146,7 +153,7 @@ fn parse_operator(lex: &mut Lexer<Token>) -> Operator {
         "."  => Of,
         "::" => ScopeOf,
 
-        _ => if s.chars().last().unwrap() == '=' && s.len() > 1 {
+        _ => if s.ends_with('=') && s.len() > 1 {
             Operator::OpAssign(Box::new(_parse_oper(&s[0..s.len()-1])))
         } else {
             _parse_oper(s)

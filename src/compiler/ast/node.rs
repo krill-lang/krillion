@@ -1,6 +1,6 @@
 use super::*;
 
-pub type AST = Vec<ANode>;
+pub type Ast = Vec<ANode>;
 
 #[derive(Debug, Clone)]
 pub enum Node {
@@ -11,17 +11,29 @@ pub enum Node {
     Return(Option<AExpr>),
     Expr(AExpr),
     Scope {
-        body: AST,
+        body: Ast,
         span: Span,
         ended: bool,
     },
     FunctionDeclare {
         ident: AString,
         params: Vec<(AString, AType, Span)>,
-        body: AST,
+        return_type: Option<AType>,
+        body: Ast,
         span: Span,
         ended: bool,
     },
+    If {
+        main: Vec<(AExpr, Ast, Span)>,
+        els: Option<Box<(Ast, Span)>>,
+        ended: bool,
+    },
+    While {
+        cond: AExpr,
+        body: Ast,
+        span: Span,
+        ended: bool,
+    }
 }
 
 #[derive(Debug, Clone)]

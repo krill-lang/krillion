@@ -1,5 +1,4 @@
 pub use logos::*;
-use super::*;
 
 #[derive(Debug, Clone, Logos)]
 pub enum HighlightToken {
@@ -34,10 +33,14 @@ pub enum HighlightToken {
     Operator,
 
     #[token("let")]
+    #[token("fn")]
+    #[token("return")]
+    #[token("if")]
+    #[token("else")]
+    #[token("for")]
+    #[token("while")]
     #[token("break")]
     #[token("continue")]
-    #[token("return")]
-    #[token("fn")]
     Keyword,
 
     #[token(",")]

@@ -4,19 +4,21 @@ pub struct Buffer<A> {
 }
 
 impl<A> Buffer<A> {
-    pub fn empty() -> Self {
+    pub const fn empty() -> Self {
         Self {
             buf: Vec::new(),
             idx: 0,
         }
     }
 
+    /*
     pub fn from_vec(v: Vec<A>) -> Self {
         Self {
             buf: v,
             idx: 0,
         }
     }
+    */
 
     pub fn next(&mut self) -> Option<&A> {
         self.idx += 1;
@@ -49,16 +51,15 @@ pub fn to_atoken_buf<'a, A: Logos<'a>>(lex: &'a mut Lexer<'a, A>) -> Result<Buff
     let mut err: Vec<ACompileError> = Vec::new();
 
     while let Some(t) = lex.next() {
-        if t.is_err() {
-            err.push((Box::new(LexerError()), lex.span()));
-        } else {
-            buf.push((t.unwrap(), lex.span()));
-        }
+        t.map_or_else(
+            |_| err.push((Box::new(LexerError()), lex.span())),
+            |t| buf.push((t, lex.span()))
+        )
     }
 
-    if err.len() != 0 {
-        Err(err)
-    } else {
+    if err.is_empty() {
         Ok(buf)
+    } else {
+        Err(err)
     }
 }

@@ -1,3 +1,15 @@
+#![warn(
+    clippy::complexity,
+    clippy::correctness,
+    clippy::perf,
+    clippy::nursery,
+    clippy::suspicious,
+    clippy::style,
+)]
+#![allow(
+    clippy::semicolon_inside_block,
+    clippy::just_underscores_and_digits,
+)]
 #![allow(unknown_lints)]
 #![allow(cast_ref_to_mut)]
 #![allow(invalid_reference_casting)]

@@ -24,6 +24,6 @@ pub fn preprocess(buf: &mut Buffer<AToken>) -> Result<Buffer<AToken>, Vec<ACompi
         }
         last = tok.0;
     }
-    
+
     Ok(new)
 }
