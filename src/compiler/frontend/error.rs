@@ -52,8 +52,8 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
             let i = i + 1;
             if end - start >= 6 && start+3 == i {
                 fin += &format!(
-                    "\x1b[1;33m{}...\n",
-                    " ".repeat(chw),
+                    "\x1b[90m({} lines omited)\n",
+                    end-start-5,
                 );
             }
             if end - start >= 6 && (start+3..=end.saturating_sub(3)).contains(&i) {
@@ -65,21 +65,24 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
                 " ".repeat(chw - format!("{i}").len()),
             );
 
-            let mut hl = HighlightToken::lexer(el.trim_end());
+            let trim_el = el.trim_end();
+            let mut hl = HighlightToken::lexer(trim_el);
             let mut hl = to_atoken_buf(&mut hl).unwrap_or_else(|_| unreachable!());
 
-            let mut tabs = 0;
+            let spaces = span.start.saturating_sub(ctx.cat[i-1]);
+            let in_tabs  = el[spaces..(spaces - span.start + span.end).min(el.len())].matches('\t').count();
+            let bef_tabs = el[..spaces].matches('\t').count();
             while let Some((tok, span)) = hl.next().cloned() {
                 let src = &el[span.start..span.end];
-                tabs += src.matches('\t').count();
                 let src = src.replace('\t', "    ");
                 fin += &tok.highlight(hl.peek().map(|(t, _)| t), &src);
             }
 
             fin += &format!(
-                "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}\x1b[0m\n",
+                "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m\n",
                 " ".repeat(chw),
-                "^".repeat(el.len()+tabs*3-ctx.cat.get(start).unwrap_or(&0).checked_sub(span.end).unwrap_or(0)+1),
+                " ".repeat(spaces+bef_tabs*3),
+                "^".repeat(el.len()-spaces+in_tabs*3-ctx.cat.get(start).unwrap_or(&0).saturating_sub(span.end+1)),
             );
         }
 

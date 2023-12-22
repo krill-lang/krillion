@@ -26,36 +26,42 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileErr
 
     let mut comp_errs: Vec<ACompileError> = Vec::new();
 
-    fn get_ast<'a>(ast: &'a Ast, span1: &'a Span, span2: Span) -> (&'a mut Ast, &'a mut Span, Span, Option<&'a mut Node>, usize) {
+    fn get_ast<'a>(ast: &'a Ast, span1: &'a Span, span2: Span) -> Vec<(&'a mut Ast, &'a mut Span, Span, Option<&'a mut Node>)> {
         #[allow(clippy::mut_from_ref)]
         fn as_mut<A>(a: &A) -> &mut A {
             unsafe { &mut *(a as *const A as *mut A) }
         }
 
-        let mut scope = (ast as *const Vec<_>, span1, span2, None);
-        let mut depth = 1;
-        while let Some(a) = match unsafe { &*scope.0 }.last() {
-            Some((
-                Node::FunctionDeclare { body, span: span2, ended: false, .. } |
-                Node::Scope { body, span: span2, ended: false } |
-                Node::While { body, span: span2, ended: false, .. }
-            , span1))
-                => Some((body as *const Vec<_>, span1, span2.clone(), Some(as_mut(&unsafe { &*scope.0 }.last().unwrap().0)))),
-            Some((Node::If { main, els, ended: false }, span1)) => {
-                let l = main.last().unwrap();
-                if let Some(body) = els.as_ref() {
-                    Some((&body.0 as *const Vec<_>, span1, body.1.clone(), Some(as_mut(&unsafe { &*scope.0 }.last().unwrap().0))))
-                } else {
-                    Some((&l.1 as *const Vec<_>, span1, l.2.clone(), Some(as_mut(&unsafe { &*scope.0 }.last().unwrap().0))))
-                }
-            },
-            _ => None
-        } { scope = a; depth += 1; }
-        (as_mut(unsafe { &*scope.0 }), as_mut(scope.1), scope.2, scope.3, depth)
+        let mut scope = vec![(as_mut(ast), as_mut(span1), span2, None)];
+        while let Some(a) = {
+            let last = unsafe { (*((&scope) as *const Vec<(&'a mut Ast, &'a mut Span, Span, Option<&'a mut Node>)>)).last().unwrap() };
+            match last.0.last() {
+                Some((
+                    Node::FunctionDeclare { body, span: span2, ended: false, .. } |
+                    Node::Scope { body, span: span2, ended: false } |
+                    Node::While { body, span: span2, ended: false, .. }
+                    , span1))
+                => Some((body as *const Vec<_>, span1, span2.clone(), Some(as_mut(&last.0.last().unwrap().0)))),
+                Some((Node::If { main, els, ended: false }, span1)) => {
+                    let l = main.last().unwrap();
+                    els.as_ref().map_or_else(|| {
+                        Some((&l.1 as *const Vec<_>, span1, l.2.clone(), Some(as_mut(&last.0.last().unwrap().0))))
+                    }, |body| {
+                        Some((&body.0 as *const Vec<_>, span1, body.1.clone(), Some(as_mut(&last.0.last().unwrap().0))))
+                    })
+                },
+                _ => None
+            }
+        } { scope.push((as_mut(unsafe { &*a.0 }), as_mut(a.1), a.2, a.3)); }
+
+        scope
     }
 
     macro_rules! ast {
         () => {
+            ast!(all).last_mut().unwrap()
+        };
+        (all) => {
             get_ast(&ast, &_span1, _span2.clone())
         };
     }
@@ -63,7 +69,9 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileErr
     macro_rules! ast_push {
         ($val: expr, $span: expr) => {
             ast!().0.push(($val, $span.clone()));
-            ast!().1.end = $span.end;
+            for i in ast!(all).iter_mut() {
+                i.1.end = $span.end;
+            }
         }
     }
 
@@ -116,6 +124,11 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileErr
             Token::Semicolon => {},
             Token::Let => {
                 let (ident, idspan) = unwrap_ident!(span);
+                let typ = match buf.peek() {
+                    Some((Token::Operator(Operator::Assign), _)) => None,
+                    Some(_) => Some(consider_error!(parse_type(buf, src))),
+                    None => error!(ParseError::RanOutTokens, span),
+                };
                 let (expr, end) = match buf.next() {
                     Some((Token::Operator(Operator::Assign), _)) => {
                         let expr = consider_error!(parse_expr(buf, src, false));
@@ -126,7 +139,7 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileErr
                     None => error!(ParseError::RanOutTokens, span),
                 };
                 let s = Span { start: span.start, end };
-                ast_push!(Node::VarDeclare { ident: (ident, idspan), expr }, s);
+                ast_push!(Node::VarDeclare { ident: (ident, idspan), typ, expr }, s);
             },
             Token::Return => {
                 let (expr, end) = match buf.next() {
@@ -209,12 +222,11 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileErr
                         Node::Scope { ended, .. } |
                         Node::If { ended, .. } |
                         Node::While { ended, .. }
-                    ), _) => {
+                    )) => {
                         sp.end = span.end;
                         *ended = true;
-                        ast!().1.end = span.end;
                     },
-                    (_, _, _, None, _) => {
+                    (_, _, _, None) => {
                         error!(ParseError::UnstartedBracket, span);
                     },
                     _ => unreachable!(),
@@ -229,8 +241,8 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileErr
         }
     }
 
-    if ast!().4 != 1 {
-        comp_errs.push((Box::new(ParseError::UnendedScope), ast!().1.clone()));
+    for i in ast!(all).iter().skip(1) {
+        comp_errs.push((Box::new(ParseError::UnendedScope), i.1.clone()));
     }
 
     if comp_errs.is_empty() {

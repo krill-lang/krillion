@@ -6,6 +6,7 @@ pub type Ast = Vec<ANode>;
 pub enum Node {
     VarDeclare {
         ident: AString,
+        typ: Option<AType>,
         expr: Option<AExpr>,
     },
     Return(Option<AExpr>),

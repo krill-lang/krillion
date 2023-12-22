@@ -111,13 +111,13 @@ impl Operator {
                     => 2,
                 Assign | OpAssign(_)
                     => 1,
-                _ => unreachable!()
+                _ => 0,
             }
         } else {
             match self {
                 Add | Sub | Mlt | Not
                     => 12,
-                _ => unreachable!(),
+                _ => 0,
             }
         }
     }
@@ -173,3 +173,5 @@ fn _parse_oper(s: &str) -> Operator {
         _ => unreachable!()
     }
 }
+
+pub type AToken = (Token, Span);

@@ -15,7 +15,7 @@
 #![allow(invalid_reference_casting)]
 
 mod compiler;
-use compiler::*;
+use compiler::frontend::*;
 mod args;
 use args::*;
 use std::process::exit;

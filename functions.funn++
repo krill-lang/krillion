@@ -1,9 +1,7 @@
-fn main(argc int, argv &str) int {
-	let a = 0
+fn main(argc int, argv &str) int { // error test
+	let a + = 0
 
 	while a <= 10 {
-		a += 1
-	}
+		a + = 1
 
 	return a
-}
