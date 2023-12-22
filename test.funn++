@@ -1,24 +1,7 @@
-:"
+fn test(a str) {
+}
 
-let a
-let b = +2
-a >>= b << (a += 2) * 3
- 
-a = function_2arg(12, 1*3)
-b = function_0arg()
-function_standalone(0x1a)
-(c * 3 + 10)[2]()[1+a][0]
- 
-a::b::c.d.e()
- 
-let c = 4a() * 3 + 2; // no infered multiply!
-5(
-5)
-a[]
-f(;
-1(a)
-1[a]
-a)
-let;
-let a a
-let
+fn main() -> int {
+	test(12)
+	return 69
+}

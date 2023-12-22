@@ -43,4 +43,6 @@ fn main() {
 
     let ast = unwrap_or_report!(parse(&mut pp, &src), filename, src);
     println!("{ast:#?}");
+    let typed = unwrap_or_report!(typecheck(&ast), filename, src);
+    println!("{typed:#?}");
 }

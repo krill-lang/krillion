@@ -19,14 +19,14 @@ macro_rules! wrap_option {
 }
 
 
-pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileError>> {
-    let ast    = Ast::new();
+pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACompileError>> {
+    let ast        = UntypedAst::new();
     let mut _span1 = Span::default();
-    let _span2 = Span::default();
+    let _span2     = Span::default();
 
     let mut comp_errs: Vec<ACompileError> = Vec::new();
 
-    fn get_ast<'a>(ast: &'a Ast, span1: &'a Span, span2: Span) -> Vec<(&'a mut Ast, &'a mut Span, Span, Option<&'a mut Node>)> {
+    fn get_ast<'a>(ast: &'a UntypedAst, span1: &'a Span, span2: Span) -> Vec<(&'a mut UntypedAst, &'a mut Span, Span, Option<&'a mut AUntypedNode>)> {
         #[allow(clippy::mut_from_ref)]
         fn as_mut<A>(a: &A) -> &mut A {
             unsafe { &mut *(a as *const A as *mut A) }
@@ -34,20 +34,20 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileErr
 
         let mut scope = vec![(as_mut(ast), as_mut(span1), span2, None)];
         while let Some(a) = {
-            let last = unsafe { (*((&scope) as *const Vec<(&'a mut Ast, &'a mut Span, Span, Option<&'a mut Node>)>)).last().unwrap() };
+            let last = unsafe { (*((&scope) as *const Vec<(&'a mut UntypedAst, &'a mut Span, Span, Option<&'a mut AUntypedNode>)>)).last().unwrap() };
             match last.0.last() {
                 Some((
                     Node::FunctionDeclare { body, span: span2, ended: false, .. } |
                     Node::Scope { body, span: span2, ended: false } |
                     Node::While { body, span: span2, ended: false, .. }
                     , span1))
-                => Some((body as *const Vec<_>, span1, span2.clone(), Some(as_mut(&last.0.last().unwrap().0)))),
+                => Some((body as *const Vec<_>, span1, span2.clone(), Some(as_mut(last.0.last().unwrap())))),
                 Some((Node::If { main, els, ended: false }, span1)) => {
                     let l = main.last().unwrap();
                     els.as_ref().map_or_else(|| {
-                        Some((&l.1 as *const Vec<_>, span1, l.2.clone(), Some(as_mut(&last.0.last().unwrap().0))))
+                        Some((&l.1 as *const Vec<_>, span1, l.2.clone(), Some(as_mut(last.0.last().unwrap()))))
                     }, |body| {
-                        Some((&body.0 as *const Vec<_>, span1, body.1.clone(), Some(as_mut(&last.0.last().unwrap().0))))
+                        Some((&body.0 as *const Vec<_>, span1, body.1.clone(), Some(as_mut(last.0.last().unwrap()))))
                     })
                 },
                 _ => None
@@ -188,13 +188,13 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileErr
                     },
                     None => error!(ParseError::RanOutTokens, buf.prev().unwrap().1.clone()),
                 };
-                let body = Ast::new();
+                let body = UntypedAst::new();
                 let span = Span { start: span.start, end: buf.current().unwrap().1.end };
                 ast_push!(Node::FunctionDeclare { ident: (ident, idspan), params, return_type, body, ended: false, span: span.clone() }, span);
             },
             Token::If => {
                 let cond = consider_error!(parse_expr(buf, src, true));
-                let body = Ast::new();
+                let body = UntypedAst::new();
                 ast_push!(Node::If {
                     main: vec![(cond, body, span.clone())],
                     els: None,
@@ -203,7 +203,7 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileErr
             },
             Token::While => {
                 let cond = consider_error!(parse_expr(buf, src, true));
-                let body = Ast::new();
+                let body = UntypedAst::new();
                 ast_push!(Node::While {
                     cond,
                     body,
@@ -212,17 +212,17 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<Ast, Vec<ACompileErr
                 }, span);
             },
             Token::CuBracketS => {
-                let body = Ast::new();
+                let body = UntypedAst::new();
                 ast_push!(Node::Scope { body, ended: false, span: span.clone() }, span);
             },
             Token::CuBracketE => {
                 match ast!() {
-                    (_, sp, _, Some(
+                    (_, sp, _, Some((
                         Node::FunctionDeclare { ended, .. } |
                         Node::Scope { ended, .. } |
                         Node::If { ended, .. } |
                         Node::While { ended, .. }
-                    )) => {
+                    , _))) => {
                         sp.end = span.end;
                         *ended = true;
                     },

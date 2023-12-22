@@ -28,6 +28,9 @@ pub enum Token {
     #[token("}")]
     CuBracketE,
 
+    #[token("->")]
+    RightArrow,
+
     #[regex(r"(\+|\-|\*|/|%|&|\||\^|<<|>>)(=)?", callback = parse_operator)]
     #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=|\.|::)", callback = parse_operator)]
     Operator(Operator),

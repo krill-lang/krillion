@@ -1,18 +1,23 @@
 use super::*;
 
-pub type Ast = Vec<ANode>;
+pub type GenericAst<Node> = Vec<(Node, Span)>;
+pub type UntypedAst = GenericAst<UntypedNode>;
+pub type TypedAst = GenericAst<TypedNode>;
+
+pub type UntypedNode = Node<AExpr>;
+pub type TypedNode = Node<(AExpr, Type)>;
 
 #[derive(Debug, Clone)]
-pub enum Node {
+pub enum Node<Expr: std::fmt::Debug + Clone> {
     VarDeclare {
         ident: AString,
         typ: Option<AType>,
-        expr: Option<AExpr>,
+        expr: Option<Expr>,
     },
-    Return(Option<AExpr>),
+    Return(Option<Expr>),
     Expr(AExpr),
     Scope {
-        body: Ast,
+        body: GenericAst<Self>,
         span: Span,
         ended: bool,
     },
@@ -20,18 +25,18 @@ pub enum Node {
         ident: AString,
         params: Vec<(AString, AType, Span)>,
         return_type: Option<AType>,
-        body: Ast,
+        body: GenericAst<Self>,
         span: Span,
         ended: bool,
     },
     If {
-        main: Vec<(AExpr, Ast, Span)>,
-        els: Option<Box<(Ast, Span)>>,
+        main: Vec<(Expr, GenericAst<Self>, Span)>,
+        els: Option<Box<(GenericAst<Self>, Span)>>,
         ended: bool,
     },
     While {
-        cond: AExpr,
-        body: Ast,
+        cond: Expr,
+        body: GenericAst<Self>,
         span: Span,
         ended: bool,
     }
@@ -105,6 +110,6 @@ impl Type {
             "str"   => BuiltIn(Str),
             "char"  => BuiltIn(Char),
             _ => Unknown(s.to_string()),
-        }  
-    }  
-}    
+        }
+    }
+}
