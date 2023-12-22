@@ -1,5 +1,0 @@
-fn main(argc int, argv &str) int {
-	let a = 0
-
-	return a
-}

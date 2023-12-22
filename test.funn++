@@ -1,7 +1,5 @@
-fn test(a str) {
-}
+fn main(argc int, argv &str) int {
+	let a = 0
 
-fn main() -> int {
-	test(12)
-	return 69
+	return a
 }
