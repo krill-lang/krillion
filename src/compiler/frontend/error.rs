@@ -37,7 +37,7 @@ pub trait ErrorTips {
 impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
     fn report(&self, ctx: &ErrorContext<'_>, span: Span) -> String {
         let start = ctx.source[..span.start].matches('\n').count()+1;
-        let end = ctx.source[..span.end].matches('\n').count()+1;
+        let end = ctx.source[..span.end-1].matches('\n').count()+1;
         let lines = end - start;
 
         let chw = format!("{end}").len();
@@ -82,7 +82,7 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
                 "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m\n",
                 " ".repeat(chw),
                 " ".repeat(spaces+bef_tabs*3),
-                "^".repeat(el.len()-spaces+in_tabs*3-ctx.cat.get(start).unwrap_or(&0).saturating_sub(span.end+1)),
+                "^".repeat(el.len()-spaces+in_tabs*3-ctx.cat.get(start).unwrap_or(&0).saturating_sub(span.end)+1),
             );
         }
 
@@ -107,6 +107,7 @@ pub enum ParseError {
     ExprParseError,
     RanOutOperands,
     RanOutTokens,
+    ExpectingIdentifier
 }
 
 impl std::fmt::Display for ParseError {
@@ -121,6 +122,7 @@ impl std::fmt::Display for ParseError {
             Self::ExprParseError => write!(f, "unknown expression parsing error"),
             Self::RanOutOperands => write!(f, "ran out of operands while parsing expression"),
             Self::RanOutTokens => write!(f, "ran out of tokens"),
+            Self::ExpectingIdentifier => write!(f, "expecting identifier"),
         }
     }
 }
@@ -154,3 +156,43 @@ impl ErrorTips for LexerError {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum TypeCheckError {
+    UnresolvedType,
+    TypeMismatch {
+        expected: Option<Type>,
+        found   : Option<Type>,
+    },
+    GlobalNode,
+    UnknownIdent,
+    FnArgsNotMatch,
+}
+
+macro_rules! format_opt_type {
+    ($a: expr) => {
+        $a.map_or("unit".to_string(), |a| format!("{a}"))
+    };
+}
+
+impl std::fmt::Display for TypeCheckError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::UnresolvedType => write!(f, "unable to resolve type for variable"),
+            Self::TypeMismatch {
+                expected, found
+            } => write!(f, "expecting type {}, but found {}", format_opt_type!(expected), format_opt_type!(found)),
+            Self::GlobalNode => write!(f, "unsupported statement in global scope"),
+            Self::UnknownIdent => write!(f, "unknown identifier"),
+            Self::FnArgsNotMatch => write!(f, "function call arguments does not match definition arguments"),
+        }
+    }
+}
+
+impl ErrorTips for TypeCheckError {
+    fn consider(&self, _ctx: &ErrorContext<'_>, _span: Span) -> Option<String> {
+        match self {
+            Self::UnresolvedType => Some("specify the type of the variable".to_string()),
+            _ => None,
+        }
+    }
+}

@@ -126,6 +126,7 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACom
                 let (ident, idspan) = unwrap_ident!(span);
                 let typ = match buf.peek() {
                     Some((Token::Operator(Operator::Assign), _)) => None,
+                    Some((Token::Semicolon, _)) => None,
                     Some(_) => Some(consider_error!(parse_type(buf, src))),
                     None => error!(ParseError::RanOutTokens, span),
                 };
@@ -326,20 +327,20 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
 
 
                     op.reverse();
-                    out.push((Expr::FnCall { id: Box::new(id.clone()), op }, span));
+                    out.push((Expr::FnCall { id: id.clone(), op }, span));
                     ops.pop();
                 },
                 Operator::RoBracketS => {
                     ops.pop();
                 },
-                Operator::Index(id) => {
+                /* Operator::Index => {
                     let idx = wrap_option!(out.pop(), (ParseError::RanOutOperands, $span.clone()))?;
                     let s = $span.start.min(idx.1.start);
                     let e = $span.end.max(idx.1.end);
                     let span = Span { start: s, end: e };
-                    out.push((Expr::Index { lhs: Box::new(id.clone()), rhs: Box::new(idx) }, span));
+                    out.push((Expr::BiOp { lhs: Box::new(id.clone()), rhs: Box::new(idx), op: Box::new(Operator::Index) }, span));
                     ops.pop();
-                },
+                }, */
                 _ => { pop_oper_to_out_no_fn!($op, $span, $unary); },
             }
         };
@@ -371,6 +372,16 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
         };
     }
 
+    macro_rules! get_ident {
+        ($e: expr) => {{
+            let e = $e;
+            match e.0 {
+                Expr::Ident(id) => id,
+                _ => return Err((ParseError::ExpectingIdentifier, e.1)),
+            }
+        }};
+    }
+
     let mut expr_span = Span { start: usize::MAX, end: usize::MIN };
 
     while let Some((tok, span)) = buf.next() {
@@ -389,19 +400,22 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
                 if matches!(last, Token::Integer(_) | Token::Ident | Token::RoBracketE | Token::SqBracketE) {
                     return Err((ParseError::UnexpectedToken, span));
                 } else {
-                    out.push((Expr::Ident(src[span.start..span.end].to_string()), span.clone()))
+                    out.push((Expr::Ident(vec![(src[span.start..span.end].to_string(), span)]), span.clone()))
                 }
             },
             Token::Operator(o1) => {
                 let un = matches!(last, Token::Operator(_) | Token::None);
                 while let Some((o2, span, unary)) = ops.last() {
-                    if matches!(o2, Operator::RoBracketS | Operator::FnCall(_) | Operator::Index(_)) || !(o2.percedence(*unary) > o1.percedence(un) || (o1.percedence(un) == o2.percedence(*unary) && o1.is_left())) {
+                    if matches!(o2, Operator::RoBracketS | Operator::FnCall(_)) || !(o2.percedence(*unary) > o1.percedence(un) || (o1.percedence(un) == o2.percedence(*unary) && o1.is_left())) {
                         break;
                     }
 
                     pop_oper_to_out_no_fn!(o2, span, unary);
                 }
                 ops.push((o1.clone(), span.clone(), un));
+            },
+            Token::ScopeOf => {
+                let prev = out.pop();
             },
             Token::Comma => {
                 while let Some((op, span, unary)) = ops.last() {
@@ -421,7 +435,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
                 } else if infers!() { // fn calls
                     let func = out.pop().unwrap();
                     let start = func.1.start;
-                    ops.push((Operator::FnCall(func), Span { start, end: span.end }, false));
+                    ops.push((Operator::FnCall(get_ident!(func)), Span { start, end: span.end }, false));
                     fn_args.push(if matches!(buf.peek().unwrap_or(&(Token::None, Span::default())).0, Token::RoBracketE) { 0 } else { 1 });
                 } else {
                     ops.push((Operator::RoBracketS, span.clone(), false));
@@ -434,7 +448,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
                     if matches!(op, Operator::FnCall(_) | Operator::RoBracketS) {
                         errs = false;
                         break;
-                    } else if matches!(op, Operator::Index(_)) {
+                    } else if matches!(op, Operator::Index) {
                     return Err((ParseError::BracketNotMatch, span));
                     }
                 }
@@ -447,7 +461,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
                 if infers!() {
                     let id = out.pop().unwrap();
                     let start = id.1.start;
-                    ops.push((Operator::Index(id), Span { start, end: span.end }, false));
+                    ops.push((Operator::Index, Span { start, end: span.end }, false));
                 } else {
                     return Err((ParseError::UnexpectedToken, span))
                 }
@@ -456,7 +470,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
                 let mut errs = true;
                 while let Some((op, span, unary)) = ops.last().cloned() {
                     pop_oper_to_out!(op, span, unary);
-                    if matches!(op, Operator::Index(_)) {
+                    if matches!(op, Operator::Index) {
                         errs = false;
                         break;
                     } else if matches!(op, Operator::FnCall(_) | Operator::RoBracketS) {
@@ -483,7 +497,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
 
 
     while let Some((op, span, unary)) = ops.last().cloned() {
-        if matches!(op, Operator::RoBracketS | Operator::Index(_)) {
+        if matches!(op, Operator::RoBracketS | Operator::Index) {
             return Err((ParseError::UnendedBracket, span));
         } else if matches!(op, Operator::FnCall(_)) {
             return Err((ParseError::UnendedFnCall, span));

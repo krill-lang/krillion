@@ -29,8 +29,13 @@ pub enum Token {
     CuBracketE,
 
     #[regex(r"(\+|\-|\*|/|%|&|\||\^|<<|>>)(=)?", callback = parse_operator)]
-    #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=|\.|::)", callback = parse_operator)]
+    #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=)", callback = parse_operator)]
     Operator(Operator),
+
+    #[token("::")]
+    ScopeOf,
+    #[token(".")]
+    Of,
 
     #[token("let")]
     Let,
@@ -68,14 +73,13 @@ pub enum Operator {
     Add, Sub, Mlt, Div, Mod,
     Assign, OpAssign(Box<Operator>),
 
-    RoBracketS, Index(AExpr),
+    RoBracketS, Index,
     Eq, NE, GT, GE, LT, LE,
     BAnd, BOr, BXOr, Not,
     LAnd, LOr,
 
     LSh, RSh,
-    FnCall(AExpr),
-    Of, ScopeOf
+    FnCall(Identifier),
 }
 
 impl Operator {
@@ -83,9 +87,7 @@ impl Operator {
         use Operator::*;
         if !unary {
             match self {
-                ScopeOf | Of
-                    => 15,
-                Index(_)
+                Index
                     => 14,
                 RoBracketS | FnCall(_)
                     => 13,
