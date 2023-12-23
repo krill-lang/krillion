@@ -152,8 +152,6 @@ fn parse_operator(lex: &Lexer<Token>) -> Operator {
         "!"  => Not,
         "&&" => LAnd,
         "||" => LOr,
-        "."  => Of,
-        "::" => ScopeOf,
 
         _ => if s.ends_with('=') && s.len() > 1 {
             Operator::OpAssign(Box::new(_parse_oper(&s[0..s.len()-1])))

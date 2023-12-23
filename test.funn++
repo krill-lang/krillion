@@ -1,4 +1,4 @@
-fn main(argc int, argv &str) int {
-	let a
-	return argc
+fn main(argc int, argv []str) int {
+	let a int = argv[0]
+	return a[0]
 }

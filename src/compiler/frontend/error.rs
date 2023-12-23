@@ -160,18 +160,12 @@ impl ErrorTips for LexerError {
 pub enum TypeCheckError {
     UnresolvedType,
     TypeMismatch {
-        expected: Option<Type>,
-        found   : Option<Type>,
+        expected: Type,
+        found   : Type,
     },
     GlobalNode,
     UnknownIdent,
     FnArgsNotMatch,
-}
-
-macro_rules! format_opt_type {
-    ($a: expr) => {
-        $a.map_or("unit".to_string(), |a| format!("{a}"))
-    };
 }
 
 impl std::fmt::Display for TypeCheckError {
@@ -180,7 +174,7 @@ impl std::fmt::Display for TypeCheckError {
             Self::UnresolvedType => write!(f, "unable to resolve type for variable"),
             Self::TypeMismatch {
                 expected, found
-            } => write!(f, "expecting type {}, but found {}", format_opt_type!(expected), format_opt_type!(found)),
+            } => write!(f, "expecting type {expected}, but found {found}"),
             Self::GlobalNode => write!(f, "unsupported statement in global scope"),
             Self::UnknownIdent => write!(f, "unknown identifier"),
             Self::FnArgsNotMatch => write!(f, "function call arguments does not match definition arguments"),

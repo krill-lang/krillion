@@ -400,7 +400,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
                 if matches!(last, Token::Integer(_) | Token::Ident | Token::RoBracketE | Token::SqBracketE) {
                     return Err((ParseError::UnexpectedToken, span));
                 } else {
-                    out.push((Expr::Ident(vec![(src[span.start..span.end].to_string(), span)]), span.clone()))
+                    out.push((Expr::Ident(vec![src[span.start..span.end].to_string()]), span.clone()))
                 }
             },
             Token::Operator(o1) => {
@@ -415,7 +415,16 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
                 ops.push((o1.clone(), span.clone(), un));
             },
             Token::ScopeOf => {
-                let prev = out.pop();
+                let p = wrap_option!(out.pop(), (ParseError::RanOutOperands, span.clone()))?;
+                let start = p.1.start;
+                let mut prev = get_ident!(p);
+                let next = match wrap_option!(buf.next(), (ParseError::RanOutOperands, span.clone()))? {
+                    (Token::Ident, span) => (src[span.start..span.end].to_string(), span.clone()),
+                    (_, span) => return Err((ParseError::UnexpectedToken, span.clone())),
+                };
+                let end = next.1.end;
+                prev.push(next.0);
+                out.push((Expr::Ident(prev), Span { start, end }));
             },
             Token::Comma => {
                 while let Some((op, span, unary)) = ops.last() {
@@ -449,7 +458,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
                         errs = false;
                         break;
                     } else if matches!(op, Operator::Index) {
-                    return Err((ParseError::BracketNotMatch, span));
+                        return Err((ParseError::BracketNotMatch, span));
                     }
                 }
 
@@ -459,9 +468,7 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
             },
             Token::SqBracketS => {
                 if infers!() {
-                    let id = out.pop().unwrap();
-                    let start = id.1.start;
-                    ops.push((Operator::Index, Span { start, end: span.end }, false));
+                    ops.push((Operator::Index, span.clone(), false));
                 } else {
                     return Err((ParseError::UnexpectedToken, span))
                 }

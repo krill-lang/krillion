@@ -65,7 +65,7 @@ pub enum Expr {
     },*/
 }
 
-pub type Identifier = Vec<AString>;
+pub type Identifier = Vec<String>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
@@ -92,6 +92,7 @@ pub enum BuiltInType {
     I8, I16, I32, I64, I128, Uint,
     F32, F64,
     Str, Char,
+    Unit,
 }
 
 impl Type {
@@ -115,9 +116,27 @@ impl Type {
             "f64"   => BuiltIn(F64),
             "str"   => BuiltIn(Str),
             "char"  => BuiltIn(Char),
+            "unit"  => BuiltIn(Unit),
             _ => Unknown(s.to_string()),
         }
     }
+
+    pub fn is_integer(&self) -> bool {
+        use BuiltInType::*;
+        match self {
+            Type::Any | Type::BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128) | Type::Integer => true,
+            Type::OneOf(t) => t.iter().fold(false, |a, e| a || e.is_integer()),
+            _ => false,
+        }
+    }
+}
+
+pub fn type_matches_collapse(lhs: &mut Option<Type>, rhs: &mut Option<Type>) -> bool {
+    if lhs == rhs {
+        return true;
+    }
+
+    false
 }
 
 impl std::fmt::Display for Type {
@@ -126,7 +145,7 @@ impl std::fmt::Display for Type {
             Type::Pointer(t) => write!(f, "&{}", t.0),
             Type::Slice(t) => write!(f, "[]{}", t.0),
             Type::Array(t, s) => write!(f, "[{s}]{}", t.0),
-            Type::BuiltIn(b) => write!(f, "{b:?}"), // TODO: pretty print it
+            Type::BuiltIn(b) => write!(f, "{b}"),
             Type::Unknown(t) => write!(f, "{t}"),
             Type::OneOf(t) => write!(
                 f, "({})",
@@ -138,5 +157,30 @@ impl std::fmt::Display for Type {
             Type::Any => write!(f, "_"),
             Type::Integer => write!(f, "{{int}}"),
         }
+    }
+}
+
+impl std::fmt::Display for BuiltInType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use BuiltInType::*;
+        write!(f, "{}", match self {
+            U8   => "u8",
+            I8   => "i8",
+            U16  => "u16",
+            I16  => "i16",
+            U32  => "u32",
+            I32  => "i32",
+            U64  => "u64",
+            I64  => "i64",
+            U128 => "u128",
+            I128 => "i128",
+            Uint => "uint",
+            Int  => "int",
+            F32 => "f32",
+            F64 => "f64",
+            Str => "str",
+            Char => "char",
+            Unit => "unit",
+        })
     }
 }
