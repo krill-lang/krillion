@@ -171,10 +171,10 @@ pub enum TypeCheckError {
 impl std::fmt::Display for TypeCheckError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::UnresolvedType => write!(f, "unable to resolve type for variable"),
+            Self::UnresolvedType => write!(f, "unable to resolve type for expression"),
             Self::TypeMismatch {
                 expected, found
-            } => write!(f, "expecting type {expected}, but found {found}"),
+            } => write!(f, "mismatched types (expecting `{expected}`, found `{found}`)"),
             Self::GlobalNode => write!(f, "unsupported statement in global scope"),
             Self::UnknownIdent => write!(f, "unknown identifier"),
             Self::FnArgsNotMatch => write!(f, "function call arguments does not match definition arguments"),

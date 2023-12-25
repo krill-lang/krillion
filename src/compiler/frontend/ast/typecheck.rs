@@ -9,7 +9,10 @@ pub fn typecheck(ast: &UntypedAst) -> Result<TypedAst, Vec<ACompileError>> {
     for n in ast.iter() {
         match &n.0 {
             Node::FunctionDeclare { ident, params, return_type, .. } => {
-                fn_signatures.insert(vec![ident.0.clone()], (params, return_type));
+                fn_signatures.insert(vec![ident.0.clone()], (
+                    params.iter().map(|a| a.1.0.clone()).collect::<Vec<Type>>(),
+                    return_type.clone().map_or(Type::BuiltIn(BuiltInType::Unit), |a| a.0)
+                ));
             },
             Node::VarDeclare { ident, typ, expr } => {
                 globals.insert(vec![ident.0.clone()],
@@ -44,7 +47,7 @@ pub fn typecheck(ast: &UntypedAst) -> Result<TypedAst, Vec<ACompileError>> {
     }
 }
 
-fn typecheck_node(node: &AUntypedNode, ast: &mut TypedAst, err: &mut Vec<ACompileError>, fn_signatures: &HashMap<Identifier, (&Vec<(AString, AType, Span)>, &Option<AType>)>, scope: &mut HashMap<Identifier, Type>) {
+fn typecheck_node(node: &AUntypedNode, ast: &mut TypedAst, err: &mut Vec<ACompileError>, fn_signatures: &HashMap<Identifier, (Vec<Type>, Type)>, scope: &mut HashMap<Identifier, Type>) {
     match node.0.clone() {
         Node::FunctionDeclare { ident, params, return_type, body, span, ended } => {
             let mut scope = scope.clone();
@@ -79,7 +82,7 @@ fn typecheck_node(node: &AUntypedNode, ast: &mut TypedAst, err: &mut Vec<ACompil
     }
 }
 
-fn typeof_expr(expr: &AExpr, err: &mut Vec<ACompileError>, fn_signatures: &HashMap<Identifier, (&Vec<(AString, AType, Span)>, &Option<AType>)>, scope: &HashMap<Identifier, Type>) -> Type {
+fn typeof_expr(expr: &AExpr, err: &mut Vec<ACompileError>, fn_signatures: &HashMap<Identifier, (Vec<Type>, Type)>, scope: &HashMap<Identifier, Type>) -> Type {
     match &expr.0 {
         Expr::BiOp { lhs, rhs, op } => {
             let l = typeof_expr(lhs, err, fn_signatures, scope);
@@ -121,7 +124,7 @@ fn typeof_expr(expr: &AExpr, err: &mut Vec<ACompileError>, fn_signatures: &HashM
             fn_signatures.get(id).cloned().map_or_else(|| {
                 err.push((Box::new(TypeCheckError::UnknownIdent), expr.1.clone()));
                 Type::Any
-            }, |a| a.1.clone().map(|a| a.0).clone().unwrap_or(Type::BuiltIn(BuiltInType::Unit)))
+            }, |a| a.1.clone())
         },
         Expr::Integer(_) => Type::Integer,
     }

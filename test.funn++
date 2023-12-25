@@ -1,4 +1,4 @@
 fn main(argc int, argv []str) int {
-	let a int = argv[0]
+	let a = 0
 	return a[0]
 }
