@@ -1,4 +1,5 @@
 use super::*;
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone)]
 pub struct ErrorContext<'a> {
@@ -37,7 +38,7 @@ pub trait ErrorTips {
 impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
     fn report(&self, ctx: &ErrorContext<'_>, span: Span) -> String {
         let start = ctx.source[..span.start].matches('\n').count()+1;
-        let end = ctx.source[..span.end-1].matches('\n').count()+1;
+        let end = ctx.source[..span.end].matches('\n').count()+1;
         let lines = end - start;
 
         let chw = format!("{end}").len();
@@ -73,16 +74,18 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
             let in_tabs  = el[spaces..(spaces - span.start + span.end).min(el.len())].matches('\t').count();
             let bef_tabs = el[..spaces].matches('\t').count();
             while let Some((tok, span)) = hl.next().cloned() {
-                let src = &el[span.start..span.end];
+                let src = el.chars().skip(span.start).take(span.end-span.start).collect::<String>();
                 let src = src.replace('\t', "    ");
                 fin += &tok.highlight(hl.peek().map(|(t, _)| t), &src);
             }
+
+            let spaces = UnicodeWidthStr::width_cjk(&el[..spaces]);
 
             fin += &format!(
                 "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m\n",
                 " ".repeat(chw),
                 " ".repeat(spaces+bef_tabs*3),
-                "^".repeat(el.len()-spaces+in_tabs*3-ctx.cat.get(start).unwrap_or(&0).saturating_sub(span.end)+1),
+                "^".repeat(UnicodeWidthStr::width_cjk(el)-spaces+in_tabs*3-ctx.cat.get(start).unwrap_or(&0).saturating_sub(span.end)+1),
             );
         }
 
