@@ -9,10 +9,12 @@
 #![allow(
     clippy::semicolon_inside_block,
     clippy::just_underscores_and_digits,
+    unknown_lints,
+    cast_ref_to_mut,
+    invalid_reference_casting,
+    mutable_transmutes,
 )]
-#![allow(unknown_lints)]
-#![allow(cast_ref_to_mut)]
-#![allow(invalid_reference_casting)]
+#![feature(mem_copy_fn)]
 
 mod compiler;
 use compiler::frontend::*;

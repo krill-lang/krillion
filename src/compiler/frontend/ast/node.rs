@@ -15,7 +15,7 @@ pub enum Node<Expr: std::fmt::Debug + Clone> {
         expr: Option<Expr>,
     },
     Return(Option<Expr>),
-    Expr(AExpr),
+    Expr(Expr),
     Scope {
         body: Ast<Self>,
         span: Span,
@@ -24,7 +24,7 @@ pub enum Node<Expr: std::fmt::Debug + Clone> {
     FunctionDeclare {
         ident: AString,
         params: Vec<(AString, AType, Span)>,
-        return_type: Option<AType>,
+        return_type: AType,
         body: Ast<Self>,
         span: Span,
         ended: bool,
@@ -128,6 +128,17 @@ impl Type {
             Any | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128) | Integer => true,
             OneOf(t) => t.iter().any(|e| e.is_integer()),
             _ => false,
+        }
+    }
+
+    pub fn specificness(&self) -> usize {
+        use Type::*;
+        match self {
+            OneOf(t) => t.iter().fold(0, |a, e| a + e.specificness()),
+            Pointer(t) | Slice(t) | Array(t, _) => t.0.specificness(),
+            Any => 1000,
+            Integer => 12,
+            _ => 1,
         }
     }
 }

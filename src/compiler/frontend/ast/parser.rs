@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::compiler::util::*;
 
 // macro_rules! wrap_result {
 // ($res: expr, $fail: expr) => {
@@ -27,14 +28,11 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACom
     let mut comp_errs: Vec<ACompileError> = Vec::new();
 
     fn get_ast<'a>(ast: &'a UntypedAst, span1: &'a Span, span2: Span) -> Vec<(&'a mut UntypedAst, &'a mut Span, Span, Option<&'a mut AUntypedNode>)> {
-        #[allow(clippy::mut_from_ref)]
-        fn as_mut<A>(a: &A) -> &mut A {
-            unsafe { &mut *(a as *const A as *mut A) }
-        }
-
-        let mut scope = vec![(as_mut(ast), as_mut(span1), span2, None)];
-        while let Some(a) = {
-            let last = unsafe { (*((&scope) as *const Vec<(&'a mut UntypedAst, &'a mut Span, Span, Option<&'a mut AUntypedNode>)>)).last().unwrap() };
+        let mut scope = unsafe {
+            vec![(as_mut(ast), as_mut(span1), span2, None)]
+        };
+        while let Some(a) = unsafe {
+            let last = (*((&scope) as *const Vec<(&'a mut UntypedAst, &'a mut Span, Span, Option<&'a mut AUntypedNode>)>)).last().unwrap();
             match last.0.last() {
                 Some((
                     Node::FunctionDeclare { body, span: span2, ended: false, .. } |
@@ -52,7 +50,7 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACom
                 },
                 _ => None
             }
-        } { scope.push((as_mut(unsafe { &*a.0 }), as_mut(a.1), a.2, a.3)); }
+        } { scope.push((unsafe { as_mut(&*a.0 ) }, unsafe { as_mut(a.1) }, a.2, a.3)); }
 
         scope
     }
@@ -180,12 +178,12 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACom
                 }
 
                 let return_type = match buf.next() {
-                    Some((Token::CuBracketS, _)) => None,
+                    Some((Token::CuBracketS, s)) => (Type::BuiltIn(BuiltInType::Unit), s.clone()),
                     Some((_, _)) => {
                         buf.rewind();
                         let t = consider_error!(parse_type(buf, src));
                         assert_token!(CuBracketS);
-                        Some(t)
+                        t
                     },
                     None => error!(ParseError::RanOutTokens, buf.prev().unwrap().1.clone()),
                 };

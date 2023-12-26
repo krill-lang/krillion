@@ -4,3 +4,5 @@ pub mod backend;
 pub mod error;
 pub mod highlight;
 pub use highlight::*;
+
+pub mod util;
