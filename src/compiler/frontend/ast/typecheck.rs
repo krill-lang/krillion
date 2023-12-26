@@ -17,10 +17,10 @@ pub fn typecheck(ast: &UntypedAst) -> Result<TypedAst, Vec<ACompileError>> {
             Node::VarDeclare { ident, typ, expr } => {
                 globals.insert(vec![ident.0.clone()],
                     typ.clone().map_or_else(|| {
-                        match expr {
-                            Some(e) => typeof_expr(e, &mut err, &fn_signatures, &globals),
-                            None => Type::Any,
-                        }
+                        expr.as_ref().map_or(
+                            Type::Any,
+                            |e| typeof_expr(e, &mut err, &fn_signatures, &globals)
+                        )
                     }, |a| a.0)
                 );
             },
@@ -47,6 +47,14 @@ pub fn typecheck(ast: &UntypedAst) -> Result<TypedAst, Vec<ACompileError>> {
     }
 }
 
+fn type_matches_collapse(lhs: &mut Type, rhs: &mut Type) -> bool {
+    if lhs == rhs {
+        return true;
+    }
+
+    false
+}
+
 fn typecheck_node(node: &AUntypedNode, ast: &mut TypedAst, err: &mut Vec<ACompileError>, fn_signatures: &HashMap<Identifier, (Vec<Type>, Type)>, scope: &mut HashMap<Identifier, Type>) {
     match node.0.clone() {
         Node::FunctionDeclare { ident, params, return_type, body, span, ended } => {
@@ -56,26 +64,26 @@ fn typecheck_node(node: &AUntypedNode, ast: &mut TypedAst, err: &mut Vec<ACompil
             }
             let mut b = TypedAst::new();
             for n in body.iter() {
-                typecheck_node(n, &mut b, err, &fn_signatures, &mut scope);
+                typecheck_node(n, &mut b, err, fn_signatures, &mut scope);
             }
             ast.push((Node::FunctionDeclare { ident, params, return_type, body: b, span, ended }, node.1.clone()));
         },
         Node::VarDeclare { ident, typ, ref expr } => {
-            let typ = typ.clone().map_or_else(|| {
-                match expr {
-                    Some(e) => typeof_expr(e, err, fn_signatures, &*scope),
-                    None => Type::Any,
-                }
+            let typ = typ.map_or_else(|| {
+                expr.as_ref().map_or(
+                    Type::Any,
+                    |e| typeof_expr(e, err, fn_signatures, &*scope),
+                )
             }, |a| a.0);
             scope.insert(vec![ident.0.clone()], typ.clone());
-            ast.push((Node::VarDeclare { ident: ident.clone(), typ: Some((typ.clone(), Span::default())), expr: expr.clone().map(|a| (a, typ)) }, node.1.clone()));
+            ast.push((Node::VarDeclare { ident, typ: Some((typ.clone(), Span::default())), expr: expr.clone().map(|a| (a, typ)) }, node.1.clone()));
         },
         Node::Return(ref expr) => {
             // TODO: check return type
-            let typ = match expr {
-                Some(e) => typeof_expr(e, err, fn_signatures, &*scope),
-                None => Type::BuiltIn(BuiltInType::Unit),
-            };
+            let typ = expr.as_ref().map_or(
+                Type::BuiltIn(BuiltInType::Unit),
+                |e| typeof_expr(e, err, fn_signatures, &*scope)
+            );
             ast.push((Node::Return(expr.clone().map(|a| (a, typ))), node.1.clone()));
         },
         _ => todo!("{node:?}"),
@@ -90,10 +98,11 @@ fn typeof_expr(expr: &AExpr, err: &mut Vec<ACompileError>, fn_signatures: &HashM
             match **op {
                 Operator::Index => {
                     match l {
-                        Type::Slice(item) | Type::Array(item, _) => if r.is_integer() {
-                            item.0
-                        } else {
-                            err.push((Box::new(TypeCheckError::TypeMismatch { expected: Type::Integer, found: r }), rhs.1.clone()));
+                        Type::Slice(item) | Type::Array(item, _) => {
+                            if !r.is_integer() {
+                                err.push((Box::new(TypeCheckError::TypeMismatch { expected: Type::Integer, found: r }), rhs.1.clone()));
+                            }
+
                             item.0
                         },
                         _ => {
@@ -124,7 +133,7 @@ fn typeof_expr(expr: &AExpr, err: &mut Vec<ACompileError>, fn_signatures: &HashM
             fn_signatures.get(id).cloned().map_or_else(|| {
                 err.push((Box::new(TypeCheckError::UnknownIdent), expr.1.clone()));
                 Type::Any
-            }, |a| a.1.clone())
+            }, |a| a.1)
         },
         Expr::Integer(_) => Type::Integer,
     }

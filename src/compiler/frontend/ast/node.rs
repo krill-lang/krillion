@@ -122,40 +122,34 @@ impl Type {
     }
 
     pub fn is_integer(&self) -> bool {
+        use Type::*;
         use BuiltInType::*;
         match self {
-            Type::Any | Type::BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128) | Type::Integer => true,
-            Type::OneOf(t) => t.iter().fold(false, |a, e| a || e.is_integer()),
+            Any | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128) | Integer => true,
+            OneOf(t) => t.iter().any(|e| e.is_integer()),
             _ => false,
         }
     }
 }
 
-pub fn type_matches_collapse(lhs: &mut Option<Type>, rhs: &mut Option<Type>) -> bool {
-    if lhs == rhs {
-        return true;
-    }
-
-    false
-}
-
 impl std::fmt::Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use Type::*;
         match self {
-            Type::Pointer(t) => write!(f, "&{}", t.0),
-            Type::Slice(t) => write!(f, "[]{}", t.0),
-            Type::Array(t, s) => write!(f, "[{s}]{}", t.0),
-            Type::BuiltIn(b) => write!(f, "{b}"),
-            Type::Unknown(t) => write!(f, "{t}"),
-            Type::OneOf(t) => write!(
+            Pointer(t) => write!(f, "&{}", t.0),
+            Slice(t) => write!(f, "[]{}", t.0),
+            Array(t, s) => write!(f, "[{s}]{}", t.0),
+            BuiltIn(b) => write!(f, "{b}"),
+            Unknown(t) => write!(f, "{t}"),
+            OneOf(t) => write!(
                 f, "({})",
                 t   .iter()
                     .map(|t| format!("{t}"))
                     .collect::<Vec<_>>()
                     .join(" | ")
             ),
-            Type::Any => write!(f, "_"),
-            Type::Integer => write!(f, "{{int}}"),
+            Any => write!(f, "_"),
+            Integer => write!(f, "{{int}}"),
         }
     }
 }

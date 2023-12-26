@@ -84,7 +84,7 @@ pub enum Operator {
 }
 
 impl Operator {
-    pub fn percedence(&self, unary: bool) -> usize {
+    pub const fn percedence(&self, unary: bool) -> usize {
         use Operator::*;
         if !unary {
             match self {

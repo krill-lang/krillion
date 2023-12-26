@@ -2,10 +2,5 @@ fn main(argc int, argv []str) int {
 	let 😳 = 69
 	let 😊 = 420
 
-
-
-
-
-
 	return 😳 + 😊
 }
