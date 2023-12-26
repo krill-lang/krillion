@@ -85,9 +85,9 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
             }
 
             let spaces = UnicodeWidthStr::width_cjk(&el[..spaces]);
-
             let start_idx = *ctx.cat.get(i-1).unwrap();
             let end_idx = *ctx.cat.get(i).unwrap_or(&ctx.source.len());
+
             fin += &format!(
                 "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m\n",
                 " ".repeat(chw),
