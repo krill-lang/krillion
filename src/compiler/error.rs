@@ -1,4 +1,5 @@
 use super::*;
+use frontend::*;
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone)]
@@ -42,11 +43,14 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
         let lines = end - start;
 
         let chw = format!("{end}").len();
+        let start_cols = &ctx.source[ctx.cat[start-1]..span.start];
+        let end_cols   = &ctx.source[ctx.cat[end-1]  ..span.end];
         let mut fin = format!(
-            "\x1b[1;31mError: {self}\n\x1b[1;34m{} \u{250c}\u{2500}\x1b[0;1m In: \x1b[0m{} \x1b[90m({start}:{}..{end}:{})\n",
+            "\x1b[1;31mError: {self}\n\x1b[1;34m{} \u{250c}\u{2500}\x1b[0;1m In: \x1b[0m{} \x1b[90m({start}:{} to {end}:{})\n",
             " ".repeat(chw),
             ctx.filename,
-            "col", "col"
+            UnicodeWidthStr::width_cjk(start_cols) + start_cols.matches('\t').count() * 4 + 1,
+            UnicodeWidthStr::width_cjk(end_cols)   + end_cols  .matches('\t').count() * 4,
         );
         fin += &format!("\x1b[1;34m{} \u{2502}\x1b[0m\n", " ".repeat(chw));
 
