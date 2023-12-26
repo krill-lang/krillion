@@ -149,7 +149,7 @@ impl std::fmt::Display for Type {
                     .join(" | ")
             ),
             Any => write!(f, "_"),
-            Integer => write!(f, "{{int}}"),
+            Integer => write!(f, "{{integer}}"),
         }
     }
 }

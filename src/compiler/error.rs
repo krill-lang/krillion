@@ -1,12 +1,14 @@
 use super::*;
 use frontend::*;
+use crate::args::*;
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone)]
 pub struct ErrorContext<'a> {
     pub filename: &'a str,
     pub source: &'a str,
-    pub cat: Vec<usize>
+    pub cat: Vec<usize>,
+    pub args: &'a Args,
 }
 
 pub type ACompileError = (Box<dyn CompilerError>, Span);
@@ -14,7 +16,7 @@ pub trait CompilerError {
     fn report(&self, ctx: &ErrorContext<'_>, span: Span) -> String;
 }
 
-pub fn reports(errs: Vec<ACompileError>, filename: &str, src: &str) -> String {
+pub fn reports(errs: Vec<ACompileError>, filename: &str, src: &str, args: &Args) -> String {
     let mut cat = Vec::with_capacity(src.split('\n').count());
     let mut j = 0;
     for el in src.split('\n') {
@@ -22,7 +24,7 @@ pub fn reports(errs: Vec<ACompileError>, filename: &str, src: &str) -> String {
         j += el.len()+1;
     }
 
-    let ctx = ErrorContext { cat, filename, source: src };
+    let ctx = ErrorContext { cat, filename, source: src, args };
 
     let mut out = String::new();
     for (err, span) in errs {
@@ -38,6 +40,8 @@ pub trait ErrorTips {
 
 impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
     fn report(&self, ctx: &ErrorContext<'_>, span: Span) -> String {
+        let is_simple = matches!(ctx.args.error_style, ErrorStyle::Simple);
+
         let start = ctx.source[..span.start].matches('\n').count()+1;
         let end = ctx.source[..span.end].matches('\n').count()+1;
         let lines = end - start;
@@ -46,12 +50,21 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
         let start_cols = &ctx.source[ctx.cat[start-1]..span.start];
         let end_cols   = &ctx.source[ctx.cat[end-1]  ..span.end];
         let mut fin = format!(
-            "\x1b[1;31mError: {self}\n\x1b[1;34m{} \u{250c}\u{2500}\x1b[0;1m In: \x1b[0m{} \x1b[90m({start}:{} to {end}:{})\n",
-            " ".repeat(chw),
+            "\x1b[1;31mError: {self}\n\x1b[1;34m {}\u{2500}\x1b[0;1m In: \x1b[0m{} \x1b[90m({start}:{} to {end}:{})\x1b[0m\n",
+            if is_simple {
+                "\u{2514}".to_string()
+            } else {
+                " ".repeat(chw) + "\u{250c}"
+            },
             ctx.filename,
             UnicodeWidthStr::width_cjk(start_cols) + start_cols.matches('\t').count() * 4 + 1,
             UnicodeWidthStr::width_cjk(end_cols)   + end_cols  .matches('\t').count() * 4,
         );
+
+        if is_simple {
+            return fin;
+        }
+
         fin += &format!("\x1b[1;34m{} \u{2502}\x1b[0m\n", " ".repeat(chw));
 
         for (i, el) in ctx.source.lines().enumerate().skip(start-1).take(lines+1) {

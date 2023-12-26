@@ -9,3 +9,15 @@ edition = "2021"
 logos = "0.13.0"
 clap = { path = "clap", features = ["derive"] }
 unicode-width = "0.1.11"
+
+[profile.release]
+strip = true
+lto = true
+
+[profile.fast]
+inherits = "dev"
+debug = false
+debug-assertions = false
+overflow-checks = false
+incremental = true
+strip = true
