@@ -43,9 +43,10 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
 
         let chw = format!("{end}").len();
         let mut fin = format!(
-            "\x1b[1;31mError: {self}\n\x1b[1;34m{} \u{250c}\u{2500}\x1b[0;1m In: \x1b[0m{}\n",
+            "\x1b[1;31mError: {self}\n\x1b[1;34m{} \u{250c}\u{2500}\x1b[0;1m In: \x1b[0m{} \x1b[90m({start}:{}..{end}:{})\n",
             " ".repeat(chw),
-            ctx.filename
+            ctx.filename,
+            "col", "col"
         );
         fin += &format!("\x1b[1;34m{} \u{2502}\x1b[0m\n", " ".repeat(chw));
 
@@ -74,18 +75,20 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
             let in_tabs  = el[spaces..(spaces - span.start + span.end).min(el.len())].matches('\t').count();
             let bef_tabs = el[..spaces].matches('\t').count();
             while let Some((tok, span)) = hl.next().cloned() {
-                let src = el.chars().skip(span.start).take(span.end-span.start).collect::<String>();
+                let src = &el[span.start..span.end];
                 let src = src.replace('\t', "    ");
                 fin += &tok.highlight(hl.peek().map(|(t, _)| t), &src);
             }
 
             let spaces = UnicodeWidthStr::width_cjk(&el[..spaces]);
 
+            let start_idx = *ctx.cat.get(i-1).unwrap();
+            let end_idx = *ctx.cat.get(i).unwrap_or(&ctx.source.len());
             fin += &format!(
                 "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m\n",
                 " ".repeat(chw),
-                " ".repeat(spaces+bef_tabs*3),
-                "^".repeat(UnicodeWidthStr::width_cjk(el)-spaces+in_tabs*3-ctx.cat.get(start).unwrap_or(&0).saturating_sub(span.end)+1),
+                " ".repeat(spaces + bef_tabs*4),
+                "^".repeat(UnicodeWidthStr::width_cjk(&ctx.source[span.start.max(start_idx)..span.end.min(end_idx)]) + in_tabs*4),
             );
         }
 

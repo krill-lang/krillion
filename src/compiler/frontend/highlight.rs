@@ -10,12 +10,13 @@ pub enum HighlightToken {
     #[token("str")]
     #[token("int")]
     #[token("uint")]
-    #[regex(r"[iu](8|16|32|64|128)")]
+    #[regex(r"[iu](8|16|32|64|128)", priority = 3)]
     BuiltIn,
 
     #[token(";")]
+    #[regex(r"[\s]+")]
     #[regex(r"//[^\n]*")]
-    #[regex(r"[\s]")]
+    #[regex(r"/\*([^*]|\*[^/])*\*/")]
     Unused,
 
     #[token("(")]
@@ -28,8 +29,8 @@ pub enum HighlightToken {
     #[token("}")]
     Brackets,
 
-    #[regex(r"(\+|\-|\*|/|%|&|\||\^|<<|>>)(=)?")]
-    #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=|\.|::)")]
+    #[regex(r"(\+|\-|\*|/|%|&|\||\^|<<|>>)(=)?", priority = 2)]
+    #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=|\.|::)", priority = 2)]
     Operator,
 
     #[token("let")]
@@ -57,14 +58,16 @@ impl HighlightToken {
         match (self, next) {
             (Ident, Some(RoBracketS))
                 => "34",
-            (Ident | RoBracketS | Brackets | Comma | Unknown, _)
-                => "0",
+            (Ident | RoBracketS | Brackets | Comma, _)
+                => "37",
             (Integer | BuiltIn, _)
                 => "33",
             (Keyword | Operator, _)
                 => "35",
             (Unused, _)
                 => "90",
+            (Unknown, _)
+                => "1;31",
         } + "m" + text + "\x1b[0m"
     }
 }

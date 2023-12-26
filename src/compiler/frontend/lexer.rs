@@ -2,8 +2,9 @@ pub use logos::*;
 use super::*;
 
 #[derive(Debug, Clone, Logos)]
-#[logos(skip r"[\s]")]
+#[logos(skip r"\s")]
 #[logos(skip r"//[^\n]*")]
+#[logos(skip r"/\*([^*]|\*[^/])*\*/")]
 pub enum Token {
     #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)", callback = parse_int)]
     Integer(u128),
