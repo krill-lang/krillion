@@ -188,7 +188,6 @@ pub enum TypeCheckError {
     },
     GlobalNode,
     UnknownIdent,
-    FnArgsNotMatch,
     FnArgCountNotMatch {
         expected: usize,
         found   : usize,
@@ -204,7 +203,6 @@ impl std::fmt::Display for TypeCheckError {
             } => write!(f, "mismatched types (expecting `{expected}`, found `{found}`)"),
             Self::GlobalNode => write!(f, "unsupported statement in global scope"),
             Self::UnknownIdent => write!(f, "unknown identifier"),
-            Self::FnArgsNotMatch => write!(f, "function call arguments does not match definition arguments"),
             Self::FnArgCountNotMatch {
                 expected, found
             } => write!(f, "function call argument count does not match definition argument count (expecting {expected}, found {found})"),

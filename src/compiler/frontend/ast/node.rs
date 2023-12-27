@@ -135,7 +135,7 @@ impl Type {
         use Type::*;
         match self {
             OneOf(t) => t.iter().fold(0, |a, e| a + e.specificness()),
-            Pointer(t) | Slice(t) | Array(t, _) => t.0.specificness(),
+            Pointer(t) | Slice(t) | Array(t, _) => t.0.specificness().saturating_sub(1),
             Any => 1000,
             Integer => 12,
             _ => 1,

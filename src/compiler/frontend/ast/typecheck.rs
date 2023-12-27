@@ -39,7 +39,7 @@ pub fn typecheck(ast: &UntypedAst) -> Result<TypedAst, Vec<ACompileError>> {
     let mut ta = TypedAst::with_capacity(ast.len());
 
     for n in ast.iter() {
-        typecheck_node(n, &mut ta, &mut err, &fn_signatures, &mut globals.clone());
+        typecheck_node(n, &mut ta, &mut err, &fn_signatures, &mut globals.clone(), &Type::BuiltIn(BuiltInType::Unit));
     }
 
     if err.is_empty() {
@@ -58,13 +58,19 @@ fn type_matches_collapse(lhs: &MaybeMutable<Type>, rhs: &MaybeMutable<Type>) -> 
     let (lhs, rhs) = if order { (lhs, rhs) } else { (rhs, lhs) };
 
     match (lhs.force_immut(), rhs.force_immut()) {
+        (Type::Array(a, c), Type::Array(b, d)) => {
+            type_matches_collapse(&MaybeMutable::Immutable(&a.0), &MaybeMutable::Immutable(&b.0)) && *c == *d
+        },
+        (Type::Slice(a) | Type::Array(a, _), Type::Slice(b) | Type::Array(b, _)) => {
+            type_matches_collapse(&MaybeMutable::Immutable(&a.0), &MaybeMutable::Immutable(&b.0))
+        },
         (t, Type::Any) => {
             rhs.map_mut(|a| *a = t.clone());
             true
         },
         (Type::OneOf(a), Type::OneOf(b)) => todo!(),
         (t, Type::OneOf(a)) => {
-            let ret = a.contains(t);
+            let ret = a.contains(&t);
             rhs.map_mut(|a| *a = t.clone());
             ret
         },
@@ -75,19 +81,34 @@ fn type_matches_collapse(lhs: &MaybeMutable<Type>, rhs: &MaybeMutable<Type>) -> 
     }
 }
 
-fn typecheck_node(node: &AUntypedNode, ast: &mut TypedAst, err: &mut Vec<ACompileError>, fn_signatures: &HashMap<Identifier, (Vec<Type>, Type)>, scope: &mut HashMap<Identifier, Type>) {
+fn typecheck_node(node: &AUntypedNode, ast: &mut TypedAst, err: &mut Vec<ACompileError>, fn_signatures: &HashMap<Identifier, (Vec<Type>, Type)>, scope: &mut HashMap<Identifier, Type>, ret_type: &Type) {
+    macro_rules! typecheck_body {
+        ($body: expr, $scope: ident, $ret_type: expr) => {{
+            let mut b = TypedAst::new();
+            for n in $body.iter() {
+                typecheck_node(n, &mut b, err, fn_signatures, &mut $scope, $ret_type);
+            }
+
+            println!("{:?}", $scope);
+            b
+        }};
+        ($body: expr, $scope: ident) => {{
+            typecheck_body!($body, $scope, ret_type)
+        }};
+        ($body: expr) => {{
+            let mut s = scope.clone();
+            typecheck_body!($body, s)
+        }};
+    }
+
     match node.0.clone() {
         Node::FunctionDeclare { ident, params, return_type, body, span, ended } => {
             let mut scope = scope.clone();
             for p in params.iter() {
                 scope.insert(vec![p.0.0.clone()], p.1.0.clone());
             }
-            let mut b = TypedAst::new();
-            for n in body.iter() {
-                typecheck_node(n, &mut b, err, fn_signatures, &mut scope);
-            }
-            println!("{scope:?}");
-            ast.push((Node::FunctionDeclare { ident, params, return_type, body: b, span, ended }, node.1.clone()));
+            let body = typecheck_body!(body, scope, &return_type.0);
+            ast.push((Node::FunctionDeclare { ident, params, return_type, body, span, ended }, node.1.clone()));
         },
         Node::VarDeclare { ident, typ, ref expr } => {
             let mut expr = expr.clone();
@@ -100,41 +121,34 @@ fn typecheck_node(node: &AUntypedNode, ast: &mut TypedAst, err: &mut Vec<ACompil
             scope.insert(vec![ident.0.clone()], typ.clone());
             ast.push((Node::VarDeclare { ident, typ: Some((typ.clone(), Span::default())), expr: expr.map(|a| (a, typ)) }, node.1.clone()));
         },
-        Node::Expr(ref expr) => {
-            let mut expr = expr.clone();
-            let typ = typeof_expr(&mut expr, err, fn_signatures, scope);
+        Node::Expr(expr) => {
+            let typ = typeof_expr(&expr, err, fn_signatures, scope);
             ast.push((Node::Expr((expr, typ)), node.1.clone()));
         },
         Node::Return(ref expr) => {
-            // TODO: check return type
-            let mut expr = expr.clone();
-            let typ = expr.as_mut().map_or(
+            let typ = expr.as_ref().map_or(
                 Type::BuiltIn(BuiltInType::Unit),
                 |e| typeof_expr(e, err, fn_signatures, scope)
             );
+
+            if let Some(ref expr) = expr {
+                if !type_matches_collapse(&ref_to_type(&expr, scope, &typ), &MaybeMutable::Immutable(ret_type)) {
+                    err.push((Box::new(TypeCheckError::TypeMismatch { expected: ret_type.clone(), found: typ.clone() }), expr.1.clone()));
+                }
+            } else if !matches!(ret_type, Type::BuiltIn(BuiltInType::Unit)) {
+                err.push((Box::new(TypeCheckError::TypeMismatch { expected: ret_type.clone(), found: typ.clone() }), node.1.clone()));
+            }
+
             ast.push((Node::Return(expr.clone().map(|a| (a, typ))), node.1.clone()));
         },
         Node::Scope { body, span, ended } => {
-            let mut b = TypedAst::new();
-            let mut scope = scope.clone();
-            for n in body.iter() {
-                typecheck_node(n, &mut b, err, fn_signatures, &mut scope);
-            }
-            println!("{scope:?}");
-            ast.push((Node::Scope { body: b, span, ended }, node.1.clone()));
+            let body = typecheck_body!(body);
+            ast.push((Node::Scope { body, span, ended }, node.1.clone()));
         },
         Node::While { cond, body, span, ended } => {
             let typ = typeof_expr(&cond, err, fn_signatures, scope);
-
-            let mut b = TypedAst::new();
-            let mut s = scope.clone();
-            for n in body.iter() {
-                typecheck_node(n, &mut b, err, fn_signatures, &mut s);
-            }
-            println!("{scope:?}");
-            ast.push((Node::While { cond: (cond, typ), body: b, span, ended }, node.1.clone()));
-
-            // TODO: combine types of old scope with inner scope
+            let body = typecheck_body!(body);
+            ast.push((Node::While { cond: (cond, typ), body, span, ended }, node.1.clone()));
         },
         _ => todo!("{node:?}"),
     }
@@ -147,25 +161,26 @@ fn typeof_expr(expr: &AExpr, err: &mut Vec<ACompileError>, fn_signatures: &HashM
             let r = typeof_expr(rhs, err, fn_signatures, scope);
             match **op {
                 Operator::Index => {
-                    match l {
-                        Type::Slice(item) | Type::Array(item, _) => {
-                            if !r.is_integer() {
-                                err.push((Box::new(TypeCheckError::TypeMismatch { expected: Type::Integer, found: r }), rhs.1.clone()));
-                            }
+                    let l_may_mut = ref_to_type(lhs, unsafe { as_mut(scope) }, &l);
+                    let r_may_mut = ref_to_type(rhs, unsafe { as_mut(scope) }, &r);
 
-                            item.0
-                        },
-                        _ => {
-                            err.push((Box::new(TypeCheckError::TypeMismatch { expected: Type::Slice(Box::new((Type::Any, Span::default()))), found: l }), lhs.1.clone()));
-                            Type::Any
-                        },
+                    if !type_matches_collapse(&l_may_mut, &MaybeMutable::Immutable(&Type::Slice(Box::new((Type::Any, Span::default()))))) {
+                        err.push((Box::new(TypeCheckError::TypeMismatch { expected: Type::Slice(Box::new((Type::Any, Span::default()))), found: l_may_mut.force_immut().clone() }), lhs.1.clone()));
+                    }
+
+                    if !type_matches_collapse(&r_may_mut, &MaybeMutable::Immutable(&Type::Integer)) {
+                        err.push((Box::new(TypeCheckError::TypeMismatch { expected: Type::Integer, found: r_may_mut.force_immut().clone() }), rhs.1.clone()));
+                    }
+
+                    match l_may_mut.force_immut() {
+                        Type::Slice(item) | Type::Array(item, _) => item.0.clone(),
+                        _ => Type::Any,
                     }
                 },
                 _ => {
                     let l_may_mut = ref_to_type(lhs, unsafe { as_mut(scope) }, &l);
                     let r_may_mut = ref_to_type(rhs, unsafe { as_mut(scope) }, &r);
                     if type_matches_collapse(&l_may_mut, &r_may_mut) {
-                        println!("{} {}", l_may_mut.force_immut(), r_may_mut.force_immut());
                         l
                     } else {
                         err.push((Box::new(TypeCheckError::TypeMismatch { expected: l, found: r }), rhs.1.clone()));
@@ -184,7 +199,6 @@ fn typeof_expr(expr: &AExpr, err: &mut Vec<ACompileError>, fn_signatures: &HashM
             })
         },
         Expr::FnCall { id, op } => {
-            // TODO: check is args valid
             let func = fn_signatures.get(id).cloned().unwrap_or_else(|| {
                 err.push((Box::new(TypeCheckError::UnknownIdent), expr.1.clone()));
                 (vec![], Type::Any)
@@ -196,7 +210,7 @@ fn typeof_expr(expr: &AExpr, err: &mut Vec<ACompileError>, fn_signatures: &HashM
                 for i in op.iter().zip(func.0.iter()) {
                     let f_typ = typeof_expr(i.0, err, fn_signatures, scope);
                     if !type_matches_collapse(&ref_to_type(i.0, scope, &f_typ), &MaybeMutable::Immutable(i.1)) {
-                        err.push((Box::new(TypeCheckError::FnArgsNotMatch), i.0.1.clone()));
+                        err.push((Box::new(TypeCheckError::TypeMismatch { expected: i.1.clone(), found: f_typ }), i.0.1.clone()));
                     }
                 }
             }
