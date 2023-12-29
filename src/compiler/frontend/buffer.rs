@@ -11,14 +11,19 @@ impl<A> Buffer<A> {
         }
     }
 
-    /*
-    pub fn from_vec(v: Vec<A>) -> Self {
+    pub fn with_capacity(cap: usize) -> Self {
+        Self {
+            buf: Vec::with_capacity(cap),
+            idx: 0,
+        }
+    }
+
+    /* pub fn from_vec(v: Vec<A>) -> Self {
         Self {
             buf: v,
             idx: 0,
         }
-    }
-    */
+    } */
 
     pub fn next(&mut self) -> Option<&A> {
         self.idx += 1;

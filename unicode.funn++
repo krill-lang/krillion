@@ -1,6 +1,6 @@
 fn main(argc int, argv []str) int {
-	let 😳 = 69
-	let 😊 = 420
+	let 😳a = 69
+	let 😊b = 420
 
-	return 😳 + 😊
+	return 😳a + 😊b
 }

@@ -30,7 +30,7 @@ pub enum HighlightToken {
     Brackets,
 
     #[regex(r"(\+|\-|\*|/|%|&|\||\^|<<|>>)(=)?", priority = 2)]
-    #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=|\.|::)", priority = 2)]
+    #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=)", priority = 2)]
     Operator,
 
     #[token("let")]
@@ -46,6 +46,10 @@ pub enum HighlightToken {
 
     #[token(",")]
     Comma,
+    #[token("::")]
+    Scope,
+    #[token(".")]
+    Of,
 
     #[regex(r".", priority = 0)]
     Unknown,
@@ -58,13 +62,13 @@ impl HighlightToken {
         match (self, next) {
             (Ident, Some(RoBracketS))
                 => "34",
-            (Ident | RoBracketS | Brackets | Comma, _)
+            (Ident | RoBracketS | Brackets | Comma | Of, _)
                 => "37",
             (Integer | BuiltIn, _)
                 => "33",
             (Keyword | Operator, _)
                 => "35",
-            (Unused, _)
+            (Unused | Scope, _)
                 => "90",
             (Unknown, _)
                 => "1;31",

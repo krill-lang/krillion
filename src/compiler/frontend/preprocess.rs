@@ -1,7 +1,7 @@
 use super::*;
 
 pub fn preprocess(buf: &mut Buffer<AToken>) -> Result<Buffer<AToken>, Vec<ACompileError>> {
-    let mut new  = Buffer::empty();
+    let mut new  = Buffer::with_capacity(buf.buf.len());
     let mut last = Token::None;
     while let Some(tok) = buf.next() {
         let tok = tok.clone();
@@ -14,8 +14,7 @@ pub fn preprocess(buf: &mut Buffer<AToken>) -> Result<Buffer<AToken>, Vec<ACompi
                 Token::CuBracketE
             ) && !matches!(
                 buf.peek().unwrap_or(&(Token::None, Span::default())).0,
-                Token::Operator(_) |
-                Token::RoBracketE,
+                Token::Of | Token::RoBracketE,
             ) {
                 new.push((Token::Semicolon, tok.1));
             }
