@@ -58,6 +58,10 @@ fn type_matches_collapse(lhs: &MaybeMutable<Type>, rhs: &MaybeMutable<Type>) -> 
     let (lhs, rhs) = if order { (lhs, rhs) } else { (rhs, lhs) };
 
     match (lhs.force_immut(), rhs.force_immut()) {
+        (int, Type::Integer) if int.is_integer() => {
+            rhs.map_mut(|a| *a = int.clone());
+            true
+        },
         (Type::Array(a, c), Type::Array(b, d)) => {
             type_matches_collapse(&MaybeMutable::Immutable(&a.0), &MaybeMutable::Immutable(&b.0)) && *c == *d
         },

@@ -16,6 +16,7 @@ pub enum HighlightToken {
     #[token(";")]
     #[regex(r"[\s]+")]
     #[regex(r"//[^\n]*")]
+    #[regex(r"[^\\]?\\\n")]
     #[regex(r"/\*([^*]|\*[^/])*\*/")]
     Unused,
 

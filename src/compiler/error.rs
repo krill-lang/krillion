@@ -85,15 +85,24 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
             );
 
             let trim_el = el.trim_end();
-            let mut hl = HighlightToken::lexer(trim_el);
+            let hl_content = trim_el.to_string() + "\n";
+
+            let mut hl = HighlightToken::lexer(&hl_content);
             let mut hl = to_atoken_buf(&mut hl).unwrap_or_else(|_| unreachable!());
 
             let spaces = span.start.saturating_sub(ctx.cat[i-1]);
-            let in_tabs  = el[spaces..(spaces - span.start + span.end).min(el.len())].matches('\t').count();
-            let bef_tabs = el[..spaces].matches('\t').count();
+
+            let in_tabs  =
+                el[spaces..(spaces - span.start + span.end).min(el.len())]
+                    .matches('\t')
+                    .count();
+            let bef_tabs = el[..spaces]
+                .matches('\t')
+                .count();
+
             while let Some((tok, span)) = hl.next().cloned() {
-                let src = &el[span.start..span.end];
-                let src = src.replace('\t', "    ");
+                let src = &hl_content[span.start..span.end];
+                let src = src.replace('\t', "    ").replace('\n', "");
                 fin += &tok.highlight(hl.peek().map(|(t, _)| t), &src);
             }
 
@@ -105,7 +114,10 @@ impl<T> CompilerError for T where T: std::fmt::Display + ErrorTips {
                 "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m\n",
                 " ".repeat(chw),
                 " ".repeat(spaces + bef_tabs*4),
-                "^".repeat(UnicodeWidthStr::width_cjk(&ctx.source[span.start.max(start_idx)..span.end.min(end_idx)]) + in_tabs*4),
+                "^".repeat(
+                    UnicodeWidthStr::width_cjk(
+                        &ctx.source[span.start.max(start_idx)..span.end.min(end_idx)]
+                    ) + in_tabs*4),
             );
         }
 

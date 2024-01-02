@@ -12,17 +12,8 @@ fn print(a int) {
 }
 */
 
-/*
 fn main(argc int, argv []str) int {
 	let a
 	let b = a[0]
 	return b
-}
-*/
-
-fn main() {
-	let a = 1
-			 .a::add(2) +
-			 3
-	+ 4
 }

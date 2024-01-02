@@ -125,7 +125,7 @@ impl Type {
         use Type::*;
         use BuiltInType::*;
         match self {
-            Any | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128) | Integer => true,
+            Any | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128 | Int | Uint) | Integer => true,
             OneOf(t) => t.iter().any(|e| e.is_integer()),
             _ => false,
         }

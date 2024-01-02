@@ -91,6 +91,7 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACom
                 comp_errs.push((Box::new($r), $s));
                 while let Some((t, _)) = buf.next() {
                     if matches!(t, Token::Semicolon | Token::CuBracketS) {
+                        buf.rewind();
                         break;
                     }
                 }
