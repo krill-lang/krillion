@@ -250,7 +250,7 @@ fn ref_to_type<'a>(expr: &AExpr, scope: &'a mut HashMap<Identifier, Type>, typ: 
                 let mut a = ref_to_type(&lhs, scope, typ);
                 for i in a.iter_mut() {
                     *i = match i {
-                        MaybeMutable::Mutable(Type::Slice(item) | Type::Array(item, _)) => MaybeMutable::Mutable(&mut item.0),
+                        MaybeMutable::Mutable(Type::Slice(item) | Type::Array(item, _)) => MaybeMutable::Mutable(unsafe { core::mem::transmute_copy(&&item.0) }),
                         MaybeMutable::Immutable(Type::Slice(item) | Type::Array(item, _)) => MaybeMutable::Immutable(&item.0),
                         _ => todo!("index {i}"),
                     };
