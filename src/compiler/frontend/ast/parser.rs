@@ -452,10 +452,6 @@ fn parse_expr(buf: &mut Buffer<AToken>, src: &str, ends_when_curly: bool) -> Res
             Token::RoBracketE => {
                 let mut errs = true;
                 while let Some((op, s, unary)) = ops.last().cloned() {
-                    let s = Span {
-                        start: s.start,
-                        end: span.end,
-                    };
                     pop_oper_to_out!(op, s, unary);
                     if matches!(op, Operator::FnCall(_) | Operator::RoBracketS) {
                         errs = false;

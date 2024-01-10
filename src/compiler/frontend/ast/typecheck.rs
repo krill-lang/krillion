@@ -74,7 +74,7 @@ fn type_matches_collapse(lhs: &MaybeMutable<Type>, rhs: &MaybeMutable<Type>) -> 
         },
         (Type::OneOf(a), Type::OneOf(b)) => todo!(),
         (t, Type::OneOf(a)) => {
-            let ret = a.contains(&t);
+            let ret = a.contains(t);
             rhs.map_mut(|a| *a = t.clone());
             ret
         },
@@ -136,7 +136,7 @@ fn typecheck_node(node: &AUntypedNode, ast: &mut TypedAst, err: &mut Vec<ACompil
             );
 
             if let Some(ref expr) = expr {
-                let types = ref_to_type(&expr, scope, &typ);
+                let types = ref_to_type(expr, scope, &typ);
                 for typ in types.iter() {
                     if !type_matches_collapse(typ, &MaybeMutable::Immutable(ret_type)) {
                         err.push((Box::new(TypeCheckError::TypeMismatch { expected: ret_type.clone(), found: typ.force_immut().clone() }), expr.1.clone()));
@@ -247,26 +247,26 @@ fn ref_to_type<'a>(expr: &AExpr, scope: &'a mut HashMap<Identifier, Type>, typ: 
         Expr::Ident(id) => vec![MaybeMutable::Mutable(scope.get_mut(id).unwrap())],
         Expr::BiOp { lhs, rhs, op } => match &**op {
             Operator::Index => {
-                let mut a = ref_to_type(&lhs, scope, typ);
+                let mut a = ref_to_type(lhs, scope, typ);
                 for i in a.iter_mut() {
                     *i = match i {
                         MaybeMutable::Mutable(Type::Slice(item) | Type::Array(item, _)) => MaybeMutable::Mutable(unsafe { core::mem::transmute_copy(&&item.0) }),
                         MaybeMutable::Immutable(Type::Slice(item) | Type::Array(item, _)) => MaybeMutable::Immutable(&item.0),
-                        _ => todo!("index {i}"),
+                        _ => MaybeMutable::Immutable(&Type::Any), // assume caller knows
                     };
                 }
                 a
             },
             _ => {
                 let scope2 = unsafe { core::mem::transmute_copy(&scope) };
-                let mut l = ref_to_type(&lhs, scope, typ);
-                l.append(&mut ref_to_type(&rhs, scope2, typ));
+                let mut l = ref_to_type(lhs, scope, typ);
+                l.append(&mut ref_to_type(rhs, scope2, typ));
                 l
             }
         },
-        Expr::UnOp { opr, op } => match &*op {
+        Expr::UnOp { opr, op } => match op {
             // TODO: handle & and *
-            _ => ref_to_type(&opr, scope, typ),
+            _ => ref_to_type(opr, scope, typ),
         },
         _ => vec![MaybeMutable::Immutable(typ)],
     }
