@@ -1,5 +1,5 @@
 fn main(argc int, argv []str) int {
 	let a
 	let b
-	return (1 + 1)[b]
+	return a[b]
 }
