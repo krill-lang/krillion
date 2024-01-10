@@ -35,6 +35,16 @@ impl<'a, A: Clone> MaybeMutable<'a, A> {
     }
 }
 
+use std::fmt::*;
+impl<'a, A: Display> Display for MaybeMutable<'a, A> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match self {
+            Self::Mutable(i) => write!(f, "mut {i}"),
+            Self::Immutable(i) => write!(f, "immut {i}"),
+        }
+    }
+}
+
 #[allow(clippy::mut_from_ref)]
 pub unsafe fn as_mut<A>(a: &A) -> &mut A {
     std::mem::transmute(a)

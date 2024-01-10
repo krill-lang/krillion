@@ -1,0 +1,4 @@
+fn main(argc int, argv []str) int {
+	let a
+	return a[0]
+}
