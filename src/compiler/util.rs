@@ -46,6 +46,4 @@ impl<'a, A: Display> Display for MaybeMutable<'a, A> {
 }
 
 #[allow(clippy::mut_from_ref)]
-pub unsafe fn as_mut<A>(a: &A) -> &mut A {
-    std::mem::transmute(a)
-}
+pub unsafe fn as_mut<A>(a: &A) -> &mut A { std::mem::transmute(a) }

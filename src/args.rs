@@ -17,5 +17,5 @@ pub enum ErrorStyle {
     Normal,
     Compact,
     NoHighlight,
-    Simple
+    Simple,
 }

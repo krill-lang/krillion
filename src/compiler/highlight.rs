@@ -59,20 +59,18 @@ pub enum HighlightToken {
 impl HighlightToken {
     pub fn highlight(&self, next: Option<&Self>, text: &str) -> String {
         use HighlightToken::*;
-        String::new() + "\x1b[" +
-        match (self, next) {
-            (Ident, Some(RoBracketS))
-                => "34",
-            (Ident | RoBracketS | Brackets | Comma | Of, _)
-                => "37",
-            (Integer | BuiltIn, _)
-                => "33",
-            (Keyword | Operator, _)
-                => "35",
-            (Unused | Scope, _)
-                => "90",
-            (Unknown, _)
-                => "1;31",
-        } + "m" + text + "\x1b[0m"
+        String::new()
+            + "\x1b["
+            + match (self, next) {
+                (Ident, Some(RoBracketS)) => "34",
+                (Ident | RoBracketS | Brackets | Comma | Of, _) => "37",
+                (Integer | BuiltIn, _) => "33",
+                (Keyword | Operator, _) => "35",
+                (Unused | Scope, _) => "90",
+                (Unknown, _) => "1;31",
+            }
+            + "m"
+            + text
+            + "\x1b[0m"
     }
 }

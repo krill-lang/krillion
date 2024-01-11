@@ -5,5 +5,5 @@ pub use buffer::*;
 pub mod preprocess;
 pub use preprocess::*;
 pub mod ast;
-pub use ast::*;
 pub use super::error::*;
+pub use ast::*;

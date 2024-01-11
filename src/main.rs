@@ -4,7 +4,7 @@
     clippy::perf,
     clippy::nursery,
     clippy::suspicious,
-    clippy::style,
+    clippy::style
 )]
 #![allow(
     clippy::semicolon_inside_block,
@@ -12,7 +12,7 @@
     unknown_lints,
     cast_ref_to_mut,
     invalid_reference_casting,
-    mutable_transmutes,
+    mutable_transmutes
 )]
 #![feature(mem_copy_fn)]
 
