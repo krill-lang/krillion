@@ -1,2 +1,0 @@
-func main() { // should be `fn`
-} // shouldn't have a scope mismatch error

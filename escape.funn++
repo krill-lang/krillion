@@ -1,8 +1,0 @@
-fn b() int {
-	return 1
-}
-
-fn main() {
-	let a = b() \
-			+ 1
-}
