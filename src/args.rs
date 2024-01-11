@@ -1,6 +1,6 @@
 pub use clap::*;
 
-#[derive(Clone, Debug, Parser)]
+#[derive(Clone, Debug, Default, Parser)]
 pub struct Args {
     #[arg(help = "The file to be compiled")]
     pub input: String,
@@ -12,8 +12,9 @@ pub struct Args {
     pub error_style: ErrorStyle,
 }
 
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Clone, Debug, Default, ValueEnum)]
 pub enum ErrorStyle {
+    #[default]
     Normal,
     Compact,
     NoHighlight,

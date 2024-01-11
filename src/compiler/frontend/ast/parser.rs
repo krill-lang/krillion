@@ -1,15 +1,6 @@
 use super::super::*;
 use crate::compiler::util::*;
 
-// macro_rules! wrap_result {
-// ($res: expr, $fail: expr) => {
-//         match $res {
-//             Ok(a) => Ok(a),
-//             Err(_) => Err($fail),
-//         }
-//     };
-// }
-
 macro_rules! wrap_option {
     ($res: expr, $fail: expr) => {
         match $res {
@@ -38,13 +29,10 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACom
     )> {
         let mut scope = unsafe { vec![(as_mut(ast), as_mut(span1), span2, None)] };
         while let Some(a) = unsafe {
-            let last = (*((&scope)
-                as *const Vec<(
-                    &'a mut UntypedAst,
-                    &'a mut Span,
-                    Span,
-                    Option<&'a mut AUntypedNode>,
-                )>))
+            let last = core::mem::transmute_copy::<
+                    _,
+                    &Vec<(&mut UntypedAst, &mut Span, Span, Option<&mut AUntypedNode>)>,
+                >(&&scope)
                 .last()
                 .unwrap();
             match last.0.last() {
@@ -209,7 +197,7 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACom
             Token::Return => {
                 let (expr, end) = match buf.next() {
                     Some((Token::Semicolon, _)) => (None, buf.current().unwrap().1.start),
-                    Some((..)) => {
+                    Some(_) => {
                         buf.rewind();
                         let expr = consider_error!(parse_expr(buf, src, false));
                         (Some(expr), buf.current().unwrap().1.start)
@@ -257,7 +245,7 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACom
 
                 let return_type = match buf.next() {
                     Some((Token::CuBracketS, s)) => (Type::BuiltIn(BuiltInType::Unit), s.clone()),
-                    Some((..)) => {
+                    Some(_) => {
                         buf.rewind();
                         let t = consider_error!(parse_type(buf, src));
                         assert_token!(CuBracketS);
@@ -368,7 +356,7 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACom
     }
 }
 
-fn parse_type(buf: &mut Buffer<AToken>, src: &str) -> Result<AType, (ParseError, Span)> {
+pub(crate) fn parse_type(buf: &mut Buffer<AToken>, src: &str) -> Result<AType, (ParseError, Span)> {
     let mut typ_opers: Vec<(TypeOperators, Span)> = Vec::new();
 
     macro_rules! assert_token {
@@ -476,14 +464,6 @@ fn parse_expr(
                 Operator::RoBracketS => {
                     ops.pop();
                 },
-                /* Operator::Index => {
-                    let idx = wrap_option!(out.pop(), (ParseError::RanOutOperands, $span.clone()))?;
-                    let s = $span.start.min(idx.1.start);
-                    let e = $span.end.max(idx.1.end);
-                    let span = Span { start: s, end: e };
-                    out.push((Expr::BiOp { lhs: Box::new(id.clone()), rhs: Box::new(idx), op: Box::new(Operator::Index) }, span));
-                    ops.pop();
-                }, */
                 _ => { pop_oper_to_out_no_fn!($op, $span, $unary); },
             }
         };

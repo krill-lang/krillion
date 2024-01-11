@@ -9,7 +9,7 @@ pub use logos::*;
 pub enum Token {
     #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)", callback = parse_int)]
     Integer(u128),
-    #[regex(r"[_\p{L}]+", priority = 0)]
+    #[regex(r"[_\p{L}0-9]+", priority = 0)]
     Ident,
 
     #[token(";")]

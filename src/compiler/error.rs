@@ -103,7 +103,7 @@ where
 
             let spaces = span.start.saturating_sub(ctx.cat[i - 1]);
 
-            let in_tabs = el[spaces..(spaces - span.start + span.end).min(el.len())]
+            let in_tabs = el[spaces..(spaces + span.end - span.start).min(el.len())]
                 .matches('\t')
                 .count();
             let bef_tabs = el[..spaces].matches('\t').count();

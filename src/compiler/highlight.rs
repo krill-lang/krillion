@@ -4,7 +4,7 @@ pub use logos::*;
 pub enum HighlightToken {
     #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)", priority = 2)]
     Integer,
-    #[regex(r"[_\p{L}]+", priority = 1)]
+    #[regex(r"[_\p{L}0-9]+", priority = 1)]
     Ident,
 
     #[token("str")]
