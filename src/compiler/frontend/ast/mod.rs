@@ -5,8 +5,8 @@ pub mod parser;
 pub use parser::*;
 pub mod node;
 pub use node::*;
-pub mod typecheck;
-pub use typecheck::*;
+// pub mod typecheck;
+// pub use typecheck::*;
 
 pub type AUntypedNode = (UntypedNode, Span);
 pub type AExpr = (Expr, Span);

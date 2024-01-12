@@ -19,7 +19,6 @@ pub enum Node<Expr: std::fmt::Debug + Clone> {
     Scope {
         body: Ast<Self>,
         span: Span,
-        ended: bool,
     },
     FunctionDeclare {
         ident: AString,
@@ -27,18 +26,15 @@ pub enum Node<Expr: std::fmt::Debug + Clone> {
         return_type: AType,
         body: Ast<Self>,
         span: Span,
-        ended: bool,
     },
     If {
         main: Vec<(Expr, Ast<Self>, Span)>,
         els: Option<Box<(Ast<Self>, Span)>>,
-        ended: bool,
     },
     While {
         cond: Expr,
         body: Ast<Self>,
         span: Span,
-        ended: bool,
     },
 }
 

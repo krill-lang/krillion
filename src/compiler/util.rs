@@ -47,3 +47,15 @@ impl<'a, A: Display> Display for MaybeMutable<'a, A> {
 
 #[allow(clippy::mut_from_ref)]
 pub unsafe fn as_mut<A>(a: &A) -> &mut A { std::mem::transmute(a) }
+
+#[macro_export]
+macro_rules! wrap_option {
+    ($res: expr, $fail: expr) => {
+        match $res {
+            Some(a) => Ok(a),
+            None => Err($fail),
+        }
+    };
+}
+
+pub use crate::wrap_option;

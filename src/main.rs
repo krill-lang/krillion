@@ -46,6 +46,6 @@ fn main() {
 
     let ast = unwrap_or_report!(parse(&mut pp, &src));
     println!("{ast:#?}");
-    let typed = unwrap_or_report!(typecheck(&ast));
-    println!("{typed:#?}");
+    // let typed = unwrap_or_report!(typecheck(&ast));
+    // println!("{typed:#?}");
 }
