@@ -9,7 +9,10 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> (UntypedAst, Errors) {
 
     parse_more(buf, src, &mut ast, &mut errs, &parse_file_end);
 
-    errs.push((ParseError::YourMom, Span::default()));
+    errs.push((ParseError::YourMom, Span {
+        start: 0,
+        end: src.len()
+    }));
 
     (ast, errs)
 }

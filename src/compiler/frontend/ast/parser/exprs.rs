@@ -88,10 +88,10 @@ pub(super) fn parse(
         }};
     }
 
-    let mut expr_span = Span {
-        start: usize::MAX,
-        end: usize::MIN,
-    };
+    let mut expr_span = buf.peek().map_or_else(
+        || buf.current().map_or_else(Span::default, |a| a.1.clone()),
+        |a| a.1.clone()
+    );
 
     while let Some((tok, span)) = buf.next() {
         let tok = tok.clone();

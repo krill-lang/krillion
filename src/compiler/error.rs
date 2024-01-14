@@ -65,12 +65,14 @@ fn report_single<E: CompilerError>(
     let no_highlight = matches!(ctx.args.error_style, ErrorStyle::NoHighlight);
 
     let start = ctx.source[..span.start].matches('\n').count() + 1;
-    let end = ctx.source[..span.end].matches('\n').count() + 1;
+    let end = ctx.source[..span.end-1].matches('\n').count() + 1;
     let lines = end - start;
 
-    let chw = format!("{end}").len();
+    let chw = end.ilog10() as usize + 1;
+
     let start_cols = &ctx.source[ctx.cat[start - 1]..span.start];
     let end_cols = &ctx.source[ctx.cat[end - 1]..span.end];
+
     let mut fin = String::new();
     writeln!(
         fin,
@@ -117,8 +119,7 @@ fn report_single<E: CompilerError>(
 
         write!(
             fin,
-            "\x1b[1;34m{i}{} \u{2502}\x1b[0m ",
-            " ".repeat(chw - format!("{i}").len())
+            "\x1b[1;34m{i:<chw$} \u{2502}\x1b[0m ",
         )?;
 
         let trim_el = el.trim_end();
