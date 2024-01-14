@@ -10,6 +10,9 @@ pub struct Args {
 
     #[arg(long, help = "The style for error reporting", value_enum, default_value_t = ErrorStyle::Normal)]
     pub error_style: ErrorStyle,
+
+    #[arg(long, help = "Change error message colors for colorblind people", action = ArgAction::SetTrue)]
+    pub alt_color: bool,
 }
 
 #[derive(Clone, Debug, Default, ValueEnum)]

@@ -24,6 +24,16 @@ pub enum Severeness {
     Error, Warning
 }
 
+impl Severeness {
+    fn as_str(&self, args: &Args) -> &'static str {
+        match (self, args.alt_color) {
+            (Self::Error, false) => "\x1b[1;31mError",
+            (Self::Warning, _) => "\x1b[1;33mWarning",
+            (Self::Error, true) => "\x1b[1;35mError",
+        }
+    }
+}
+
 pub fn report<E: CompilerError>(
     errs: Vec<AError<E>>,
     filename: &str,
@@ -77,10 +87,7 @@ fn report_single<E: CompilerError>(
     writeln!(
         fin,
         "{}: {}",
-        match err.severeness() {
-            Severeness::Error => "\x1b[1;31mError",
-            Severeness::Warning => "\x1b[1;33mWarning",
-        },
+        err.severeness().as_str(ctx.args),
         err.message()
     )?;
     writeln!(
@@ -111,7 +118,12 @@ fn report_single<E: CompilerError>(
     {
         let i = i + 1;
         if end - start >= 6 && start + 3 == i {
-            writeln!(fin, "\x1b[90m({} lines omited)", end - start - 5)?;
+            let omitted = end - start - 5;
+            writeln!(
+                fin,
+                "\x1b[90m({omitted} line{} omitted)",
+                if omitted > 1 { "s" } else { "" }
+            )?;
         }
         if end - start >= 6 && (start + 3..=end.saturating_sub(3)).contains(&i) {
             continue;
@@ -143,12 +155,12 @@ fn report_single<E: CompilerError>(
 
             let contains =
                 span.contains(&(tok_span.start + line_start))
-                || span.contains(&(tok_span.end + line_start));
+                || span.contains(&(tok_span.end + line_start - 1));
 
             write!(
                 fin,
                 "{}{}\x1b[0m",
-                if no_highlight && contains {
+                if no_highlight && contains && !ctx.args.alt_color {
                     "\x1b[91m"
                 } else if is_compact && contains {
                     "\x1b[4m"

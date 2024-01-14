@@ -38,6 +38,7 @@ macro_rules! error {
             }
         }
 
+        $b.rewind();
         return $se($b, $e);
     }};
 }
@@ -48,6 +49,27 @@ macro_rules! unwrap_ident {
             Some((Token::Ident, s)) => ($src[s.start..s.end].to_string(), s.clone()),
             Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), $buf, $errs, $should_end),
             None => error!(ParseError::RanOutTokens, $span, $buf, $errs, $should_end),
+        }
+    };
+}
+
+macro_rules! assert_token {
+    ($intended: pat, $buf: expr, $errs: expr, $should_end: expr) => {
+        match $buf.next() {
+            Some(($intended, _)) => (),
+            Some((_, s)) => error!(
+                ParseError::UnexpectedToken, s.clone(),
+                $buf,
+                $errs,
+                $should_end
+            ),
+            None => error!(
+                ParseError::RanOutTokens,
+                $buf.prev().unwrap().1.clone(),
+                $buf,
+                $errs,
+                $should_end
+            ),
         }
     };
 }
@@ -80,6 +102,7 @@ fn parse_inner(
         Some((Token::Semicolon, _)) => parse_empty,
         Some((Token::Let, _)) => parse_let,
         Some((Token::CuBracketS, _)) => parse_scope,
+        Some((Token::While, _)) => parse_while,
         Some(_) => parse_expr,
         None => parse_empty,
     })(buf, src, ast, errs, should_end)
@@ -182,8 +205,51 @@ fn parse_scope(
         Node::Scope {
             body: new_ast,
             span: Span {
-                start: start.end,
-                end: end.start
+                start: start.start,
+                end: end.end,
+            }
+        },
+        Span {
+            start: start.start,
+            end: end.end,
+        },
+    ));
+
+    should_end(buf, errs)
+}
+
+fn parse_while(
+    buf: &mut Buffer<AToken>,
+    src: &str,
+    ast: &mut UntypedAst,
+    errs: &mut Errors,
+    should_end: ShouldEndFn<'_>,
+) -> bool {
+    let start = buf.next().unwrap().1.clone();
+
+    let expr = consider_error!(
+        exprs::parse(buf, src, true),
+        buf,
+        errs,
+        should_end
+    );
+    let expr_span = expr.1.clone();
+
+    buf.rewind();
+    assert_token!(Token::CuBracketS, buf, errs, should_end);
+
+    let mut new_ast = UntypedAst::new();
+    parse_more(buf, src, &mut new_ast, errs, &*parse_scope_end(start.start));
+
+    let end = buf.next().map_or_else(Span::default, |a| a.1.clone());
+
+    ast.push((
+        Node::While {
+            cond: expr,
+            body: new_ast,
+            span: Span {
+                start: expr_span.end,
+                end: end.end
             }
         },
         Span {
@@ -217,7 +283,7 @@ fn parse_file_end(
         None => false,
         Some((Token::CuBracketE, span)) => {
             errs.push((ParseError::UnexpectedDelimiter, span.clone()));
-            false
+            true
         },
         Some(_) => true,
     }
