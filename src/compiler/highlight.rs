@@ -71,6 +71,5 @@ impl HighlightToken {
             }
             + "m"
             + text
-            + "\x1b[0m"
     }
 }

@@ -61,6 +61,8 @@ fn report_single<E: CompilerError>(
     span: Span
 ) -> Result<String, Box<dyn std::error::Error>> {
     let is_simple = matches!(ctx.args.error_style, ErrorStyle::Simple);
+    let is_compact = matches!(ctx.args.error_style, ErrorStyle::Compact | ErrorStyle::NoHighlight);
+    let no_highlight = matches!(ctx.args.error_style, ErrorStyle::NoHighlight);
 
     let start = ctx.source[..span.start].matches('\n').count() + 1;
     let end = ctx.source[..span.end].matches('\n').count() + 1;
@@ -107,7 +109,7 @@ fn report_single<E: CompilerError>(
     {
         let i = i + 1;
         if end - start >= 6 && start + 3 == i {
-            writeln!(fin, "\x1b[90m({} lines omited)\n", end - start - 5)?;
+            writeln!(fin, "\x1b[90m({} lines omited)", end - start - 5)?;
         }
         if end - start >= 6 && (start + 3..=end.saturating_sub(3)).contains(&i) {
             continue;
@@ -132,27 +134,53 @@ fn report_single<E: CompilerError>(
             .count();
         let bef_tabs = el[..spaces].matches('\t').count();
 
-        while let Some((tok, span)) = hl.next().cloned() {
-            let src = &hl_content.slice(span).unwrap();
+        let line_start = ctx.cat[i-1];
+
+        while let Some((tok, tok_span)) = hl.next().cloned() {
+            let src = &hl_content.slice(tok_span.clone()).unwrap();
             let src = src.replace('\t', "    ").replace('\n', "");
-            write!(fin, "{}", tok.highlight(hl.peek().map(|(t, _)| t), &src))?;
+
+            let contains =
+                span.contains(&(tok_span.start + line_start))
+                || span.contains(&(tok_span.end + line_start));
+
+            write!(
+                fin,
+                "{}{}\x1b[0m",
+                if no_highlight && contains {
+                    "\x1b[91m"
+                } else if is_compact && contains {
+                    "\x1b[4m"
+                } else {
+                    ""
+                },
+                if !no_highlight {
+                    tok.highlight(hl.peek().map(|(t, _)| t), &src)
+                } else {
+                    src
+                }
+            )?;
         }
 
         let spaces = UnicodeWidthStr::width_cjk(&el[..spaces]);
         let start_idx = *ctx.cat.get(i - 1).unwrap();
         let end_idx = *ctx.cat.get(i).unwrap_or(&ctx.source.len());
 
-        writeln!(
-            fin,
-            "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m",
-            " ".repeat(chw),
-            " ".repeat(spaces + bef_tabs * 4),
-            "^".repeat(
-                UnicodeWidthStr::width_cjk(
-                    &ctx.source[span.start.max(start_idx)..span.end.min(end_idx)]
-                ) + in_tabs * 4
-            ),
-        )?;
+        if !is_compact {
+            writeln!(
+                fin,
+                "\n\x1b[1;34m{} \u{2502} \x1b[0;1;33m{}{}\x1b[0m",
+                " ".repeat(chw),
+                " ".repeat(spaces + bef_tabs * 4),
+                "^".repeat(
+                    UnicodeWidthStr::width_cjk(
+                        &ctx.source[span.start.max(start_idx)..span.end.min(end_idx)]
+                    ) + in_tabs * 4
+                ),
+            )?;
+        } else {
+            writeln!(fin, "")?;
+        }
     }
 
     writeln!(fin, "\x1b[1;34m{} \u{2502}\x1b[0m", " ".repeat(chw))?;
