@@ -1,25 +1,25 @@
 use super::super::*;
 use crate::compiler::util::*;
 
-pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<UntypedAst, Vec<ACompileError>> {
+type Errors = Vec<AError<ParseError>>;
+
+pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> (UntypedAst, Errors) {
     let mut ast = UntypedAst::new();
-    let mut comp_errs: Vec<ACompileError> = Vec::new();
+    let mut errs = Errors::new();
 
-    parse_more(buf, src, &mut ast, &mut comp_errs);
+    parse_more(buf, src, &mut ast, &mut errs, &parse_file_end);
 
-    if comp_errs.is_empty() {
-        Ok(ast)
-    } else {
-        Err(comp_errs)
-    }
+    errs.push((ParseError::YourMom, Span::default()));
+
+    (ast, errs)
 }
 
 macro_rules! consider_error {
-    ($expr: expr, $b: expr, $e: expr) => {
+    ($expr: expr, $b: expr, $e: expr, $se: expr) => {
         match $expr {
             Err((e, s)) => {
                 $b.rewind();
-                error!(e, s, $b, $e);
+                error!(e, s, $b, $e, $se);
             },
             Ok(a) => a,
         }
@@ -27,45 +27,51 @@ macro_rules! consider_error {
 }
 
 macro_rules! error {
-    ($r: expr, $s: expr, $b: expr, $e: expr) => {{
-        $e.push((Box::new($r), $s));
+    ($r: expr, $s: expr, $b: expr, $e: expr, $se: expr) => {{
+        $e.push(($r, $s));
         while let Some((t, _)) = $b.next() {
             if matches!(t, Token::Semicolon | Token::CuBracketS) {
                 break;
             }
         }
 
-        return should_end($b);
+        return $se($b, $e);
     }};
 }
 
 macro_rules! unwrap_ident {
-    ($span: expr, $buf: expr, $src: expr, $errs: expr) => {
+    ($span: expr, $buf: expr, $src: expr, $errs: expr, $should_end: expr) => {
         match $buf.next() {
             Some((Token::Ident, s)) => ($src[s.start..s.end].to_string(), s.clone()),
-            Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), $buf, $errs),
-            None => error!(ParseError::RanOutTokens, $span, $buf, $errs),
+            Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), $buf, $errs, $should_end),
+            None => error!(ParseError::RanOutTokens, $span, $buf, $errs, $should_end),
         }
     };
 }
+
+type ShouldEndFn<'a> = &'a ShouldEndFnInner;
+type ShouldEndFnInner = dyn Fn(
+    &mut Buffer<AToken>,
+    &mut Errors
+) -> bool;
 
 fn parse_more(
     buf: &mut Buffer<AToken>,
     src: &str,
     ast: &mut UntypedAst,
-    errs: &mut Vec<ACompileError>,
-) -> bool {
-    while parse_inner(buf, src, ast, errs) {
+    errs: &mut Errors,
+    should_end: ShouldEndFn<'_>,
+) {
+    while parse_inner(buf, src, ast, errs, should_end) {
     }
-
-    should_end(buf)
 }
 
 fn parse_inner(
     buf: &mut Buffer<AToken>,
     src: &str,
     ast: &mut UntypedAst,
-    errs: &mut Vec<ACompileError>,
+    errs: &mut Errors,
+    should_end: ShouldEndFn<'_>,
 ) -> bool {
     (match buf.peek() {
         Some((Token::Semicolon, _)) => parse_empty,
@@ -73,19 +79,21 @@ fn parse_inner(
         Some((Token::CuBracketS, _)) => parse_scope,
         Some(_) => parse_expr,
         None => parse_empty,
-    })(buf, src, ast, errs)
+    })(buf, src, ast, errs, should_end)
 }
 
 fn parse_expr(
     buf: &mut Buffer<AToken>,
     src: &str,
     ast: &mut UntypedAst,
-    errs: &mut Vec<ACompileError>,
+    errs: &mut Errors,
+    should_end: ShouldEndFn<'_>,
 ) -> bool {
     let expr = consider_error!(
         exprs::parse(buf, src, false),
         buf,
-        errs
+        errs,
+        should_end
     );
     let span = expr.1.clone();
     ast.push((
@@ -96,44 +104,46 @@ fn parse_expr(
         }
     ));
 
-    should_end(buf)
+    should_end(buf, errs)
 }
 
 fn parse_empty(
     buf: &mut Buffer<AToken>,
-    _src: &str,
-    _ast: &mut UntypedAst,
-    _errs: &mut Vec<ACompileError>,
+    src: &str,
+    ast: &mut UntypedAst,
+    errs: &mut Errors,
+    should_end: ShouldEndFn<'_>,
 ) -> bool {
     buf.next();
-    should_end(buf)
+    should_end(buf, errs)
 }
 
 fn parse_let(
     buf: &mut Buffer<AToken>,
     src: &str,
     ast: &mut UntypedAst,
-    errs: &mut Vec<ACompileError>,
+    errs: &mut Errors,
+    should_end: ShouldEndFn<'_>,
 ) -> bool {
     let span = buf.next().unwrap().1.clone();
 
-    let (ident, idspan) = unwrap_ident!(span, buf, src, errs);
+    let (ident, idspan) = unwrap_ident!(span, buf, src, errs, should_end);
 
     let typ = match buf.peek() {
         Some((Token::Operator(Operator::Assign), _)) => None,
         Some((Token::Semicolon, _)) => None,
-        Some(_) => Some(consider_error!(types::parse(buf, src), buf, errs)),
-        None => error!(ParseError::RanOutTokens, span, buf, errs),
+        Some(_) => Some(consider_error!(types::parse(buf, src), buf, errs, should_end)),
+        None => error!(ParseError::RanOutTokens, span, buf, errs, should_end),
     };
 
     let (expr, end) = match buf.next() {
         Some((Token::Operator(Operator::Assign), _)) => {
-            let expr = consider_error!(exprs::parse(buf, src, false), buf, errs);
+            let expr = consider_error!(exprs::parse(buf, src, false), buf, errs, should_end);
             (Some(expr), buf.current().unwrap().1.start)
         },
         Some((Token::Semicolon, _)) => (None, buf.current().unwrap().1.start),
-        Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), buf, errs),
-        None => error!(ParseError::RanOutTokens, span, buf, errs),
+        Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), buf, errs, should_end),
+        None => error!(ParseError::RanOutTokens, span, buf, errs, should_end),
     };
 
     ast.push((
@@ -148,21 +158,22 @@ fn parse_let(
         }
     ));
 
-    should_end(buf)
+    should_end(buf, errs)
 }
 
 fn parse_scope(
     buf: &mut Buffer<AToken>,
     src: &str,
     ast: &mut UntypedAst,
-    errs: &mut Vec<ACompileError>,
+    errs: &mut Errors,
+    should_end: ShouldEndFn<'_>,
 ) -> bool {
     let start = buf.next().unwrap().1.clone();
 
     let mut new_ast = UntypedAst::new();
-    parse_more(buf, src, &mut new_ast, errs);
+    parse_more(buf, src, &mut new_ast, errs, &*parse_scope_end(start.start));
 
-    let end = buf.next().unwrap().1.clone();
+    let end = buf.next().map_or_else(Span::default, |a| a.1.clone());
 
     ast.push((
         Node::Scope {
@@ -178,11 +189,35 @@ fn parse_scope(
         },
     ));
 
-    should_end(buf)
+    should_end(buf, errs)
 }
 
-fn should_end(buf: &mut Buffer<AToken>) -> bool {
-    !matches!(buf.peek(), Some((Token::CuBracketE, _)) | None)
+fn parse_scope_end(start: usize) -> Box<ShouldEndFnInner> {
+    Box::new(move |buf, errs| {
+        match buf.peek() {
+            Some((Token::CuBracketE, _)) => false,
+            None => {
+                let end = buf.buf.last().unwrap().1.clone().end;
+                errs.push((ParseError::UnendedScope, Span { start, end }));
+                false
+            },
+            Some(_) => true,
+        }
+    })
+}
+
+fn parse_file_end(
+    buf: &mut Buffer<AToken>,
+    errs: &mut Errors,
+) -> bool {
+    match buf.peek() {
+        None => false,
+        Some((Token::CuBracketE, span)) => {
+            errs.push((ParseError::UnexpectedDelimiter, span.clone()));
+            false
+        },
+        Some(_) => true,
+    }
 }
 
 /*

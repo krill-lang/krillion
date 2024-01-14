@@ -3,17 +3,18 @@ use crate::args::Args;
 
 macro_rules! unwrap {
     ($a: expr, $src: expr) => {{
-        match $a {
-            Ok(a) => a,
-            Err(err) => {
-                print!("{}", reports(err, "unit test", $src, &Args::default()));
-                std::process::exit(1);
-            },
+        let a = $a;
+        let (msg, err) = report(a.1, "unit test", $src, &Args::default());
+        print!("{}", msg);
+        if err {
+            std::process::exit(1);
         }
+
+        a.0
     }};
 }
 
-fn compile(src: &str) -> Result<UntypedAst, Vec<ACompileError>> {
+fn compile(src: &str) -> (UntypedAst, Vec<AError<ParseError>>) {
     let mut l = Token::lexer(&src);
     let mut buf = unwrap!(to_atoken_buf(&mut l), src);
     let mut pp = unwrap!(preprocess(&mut buf), src);

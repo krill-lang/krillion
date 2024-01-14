@@ -1,3 +1,5 @@
+// Title: can't update type of variables if they're in expression
+
 fn main(argc int, argv []str) int {
 	let a
 	let b

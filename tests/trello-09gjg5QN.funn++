@@ -1,3 +1,5 @@
+// Title: variable types are loss after scope ends
+
 fn main(argc int, argv []str) int {
 	let a
 	let b

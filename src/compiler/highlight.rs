@@ -2,9 +2,9 @@ pub use logos::*;
 
 #[derive(Debug, Clone, Logos)]
 pub enum HighlightToken {
-    #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)", priority = 2)]
+    #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)", priority = 10)]
     Integer,
-    #[regex(r"[_\p{L}0-9]+", priority = 1)]
+    #[regex(r"[_a-zA-Z0-9\u0100-\x{fffff}]+", priority = 2)]
     Ident,
 
     #[token("str")]
@@ -14,7 +14,7 @@ pub enum HighlightToken {
     BuiltIn,
 
     #[token(";")]
-    #[regex(r"[\s]+")]
+    #[regex(r"[\s]+", priority = 3)]
     #[regex(r"//[^\n]*")]
     #[regex(r"[^\\]?\\\n")]
     #[regex(r"/\*([^*]|\*[^/])*\*/")]
@@ -30,8 +30,8 @@ pub enum HighlightToken {
     #[token("}")]
     Brackets,
 
-    #[regex(r"(\+|\-|\*|/|%|&|\||\^|<<|>>)(=)?", priority = 2)]
-    #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=)", priority = 2)]
+    #[regex(r"(\+|\-|\*|/|%|&|\||\^|<<|>>)(=)?", priority = 3)]
+    #[regex(r"(<|>|!|==|!=|<=|>=|&&|\|\||=)", priority = 3)]
     Operator,
 
     #[token("let")]
@@ -52,7 +52,7 @@ pub enum HighlightToken {
     #[token(".")]
     Of,
 
-    #[regex(r".", priority = 0)]
+    #[regex(r".", priority = 1)]
     Unknown,
 }
 

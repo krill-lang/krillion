@@ -1,7 +1,7 @@
 use super::super::*;
 use crate::compiler::util::*;
 
-pub(crate) fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AType, (ParseError, Span)> {
+pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AType, (ParseError, Span)> {
     let mut typ_opers: Vec<(TypeOperators, Span)> = Vec::new();
 
     macro_rules! assert_token {

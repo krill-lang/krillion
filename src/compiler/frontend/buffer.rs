@@ -43,20 +43,16 @@ impl<A> Buffer<A> {
 use super::*;
 pub fn to_atoken_buf<'a, A: Logos<'a>>(
     lex: &'a mut Lexer<'a, A>,
-) -> Result<Buffer<(A, Span)>, Vec<ACompileError>> {
+) -> (Buffer<(A, Span)>, Vec<AError<LexerError>>) {
     let mut buf = Buffer::empty();
-    let mut err: Vec<ACompileError> = Vec::new();
+    let mut err = Vec::new();
 
     while let Some(t) = lex.next() {
         t.map_or_else(
-            |_| err.push((Box::new(LexerError()), lex.span())),
+            |_| err.push((LexerError, lex.span())),
             |t| buf.push((t, lex.span())),
         )
     }
 
-    if err.is_empty() {
-        Ok(buf)
-    } else {
-        Err(err)
-    }
+    (buf, err)
 }

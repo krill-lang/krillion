@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn preprocess(buf: &mut Buffer<AToken>) -> Result<Buffer<AToken>, Vec<ACompileError>> {
+pub fn preprocess(buf: &mut Buffer<AToken>) -> (Buffer<AToken>, Vec<AError<LexerError>>) {
     let mut new = Buffer::with_capacity(buf.buf.len());
     let mut last = Token::None;
     while let Some(tok) = buf.next() {
@@ -28,5 +28,5 @@ pub fn preprocess(buf: &mut Buffer<AToken>) -> Result<Buffer<AToken>, Vec<ACompi
         last = tok.0;
     }
 
-    Ok(new)
+    (new, Vec::new())
 }

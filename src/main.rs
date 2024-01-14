@@ -29,15 +29,16 @@ fn main() {
     let src = std::fs::read_to_string(filename).unwrap();
 
     macro_rules! unwrap_or_report {
-        ($i: expr) => {
-            match $i {
-                Ok(i) => i,
-                Err(err) => {
-                    print!("{}", reports(err, filename, &src, &args));
-                    exit(1);
-                },
+        ($i: expr) => {{
+            let i = $i;
+            let (msg, err) = report(i.1, filename, &src, &args);
+            print!("{}", msg);
+            if err {
+                exit(1);
             }
-        };
+
+            i.0
+        }};
     }
 
     let mut l = Token::lexer(&src);
