@@ -212,6 +212,8 @@ fn report_single<E: CompilerError>(
 #[allow(clippy::enum_variant_names)]
 pub enum ParseError {
     UnexpectedToken,
+    UnexpectedVisibility,
+    UnexpectedLinkage,
     UnstartedBracket,
     UnendedBracket,
     UnendedFnCall,
@@ -230,6 +232,8 @@ impl CompilerError for ParseError {
     fn message(&self) -> String {
         match self {
             Self::UnexpectedToken => "unexpected token".to_string(),
+            Self::UnexpectedVisibility => "unexpected visibility qualifier".to_string(),
+            Self::UnexpectedLinkage => "unexpected linkage specifier".to_string(),
             Self::UnstartedBracket => "ending bracket have no matching starting bracket".to_string(),
             Self::UnendedBracket => "starting bracket have no matching ending bracket".to_string(),
             Self::UnendedFnCall => "function call have no ending bracket".to_string(),
@@ -249,6 +253,9 @@ impl CompilerError for ParseError {
         match self {
             Self::UnexpectedToken => {
                 Some("add a semicolon to end the current statement".to_string())
+            },
+            Self::UnexpectedVisibility | Self::UnexpectedLinkage => {
+                Some("remove this token".to_string())
             },
             Self::UnendedFnCall | Self::UnendedBracket => {
                 Some("add a ending bracket".to_string())

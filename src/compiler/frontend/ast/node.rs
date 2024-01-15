@@ -1,15 +1,39 @@
 use super::*;
 
-pub type Ast<Node> = Vec<(Node, Span)>;
+pub type Ast<Kind> = Vec<Node<Kind>>;
 pub type UntypedAst = Ast<UntypedNode>;
 pub type TypedAst = Ast<TypedNode>;
 
-pub type UntypedNode = Node<AExpr>;
-pub type TypedNode = Node<(AExpr, Type)>;
+#[derive(Debug, Clone)]
+pub struct Node<Kind> {
+    pub kind: Kind,
+    pub span: Span,
+    pub extra: NodeExtra,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct NodeExtra {
+}
 
 #[derive(Debug, Clone)]
-pub enum Node<Expr: std::fmt::Debug + Clone> {
+pub enum Visibility {
+    Public,
+}
+
+#[derive(Debug, Clone)]
+pub enum Linkage {
+    External,
+    Static,
+}
+
+pub type UntypedNode = NodeKind<AExpr>;
+pub type TypedNode = NodeKind<(AExpr, Type)>;
+
+#[derive(Debug, Clone)]
+pub enum NodeKind<Expr: std::fmt::Debug + Clone> {
     VarDeclare {
+        vis: Option<(Visibility, Span)>,
+        link: Option<(Linkage, Span)>,
         ident: AString,
         typ: Option<AType>,
         expr: Option<Expr>,
@@ -21,6 +45,8 @@ pub enum Node<Expr: std::fmt::Debug + Clone> {
         span: Span,
     },
     FunctionDeclare {
+        vis: Option<(Visibility, Span)>,
+        link: Option<(Linkage, Span)>,
         ident: AString,
         params: Vec<(AString, AType, Span)>,
         return_type: AType,

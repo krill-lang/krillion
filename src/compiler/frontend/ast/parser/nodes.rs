@@ -74,6 +74,22 @@ macro_rules! assert_token {
     };
 }
 
+macro_rules! disable_vis {
+    ($vis: expr, $buf: expr, $err: expr, $should_end: expr) => {{
+        if $vis.is_some() {
+            error!(ParseError::UnexpectedVisibility, $vis.unwrap().1, $buf, $err, $should_end);
+        }
+    }};
+}
+
+macro_rules! disable_link {
+    ($link: expr, $buf: expr, $err: expr, $should_end: expr) => {{
+        if $link.is_some() {
+            error!(ParseError::UnexpectedLinkage, $link.unwrap().1, $buf, $err, $should_end);
+        }
+    }};
+}
+
 type ShouldEndFn<'a> = &'a ShouldEndFnInner;
 type ShouldEndFnInner = dyn Fn(
     &mut Buffer<AToken>,
@@ -98,6 +114,9 @@ fn parse_inner(
     errs: &mut Errors,
     should_end: ShouldEndFn<'_>,
 ) -> bool {
+    let visibility = parse_visibility(buf, src, ast, errs, should_end);
+    let linkage = parse_linkage(buf, src, ast, errs, should_end);
+
     (match buf.peek() {
         Some((Token::Semicolon, _)) => parse_empty,
         Some((Token::Let, _)) => parse_let,
@@ -105,16 +124,21 @@ fn parse_inner(
         Some((Token::While, _)) => parse_while,
         Some(_) => parse_expr,
         None => parse_empty,
-    })(buf, src, ast, errs, should_end)
+    })(buf, src, ast, visibility, linkage, NodeExtra::default(), errs, should_end)
 }
 
 fn parse_expr(
     buf: &mut Buffer<AToken>,
     src: &str,
     ast: &mut UntypedAst,
+    vis: Option<(Visibility, Span)>,
+    _link: Option<(Linkage, Span)>,
+    extra: NodeExtra,
     errs: &mut Errors,
     should_end: ShouldEndFn<'_>,
 ) -> bool {
+    disable_vis!(vis, buf, errs, should_end);
+
     let expr = consider_error!(
         exprs::parse(buf, src, false),
         buf,
@@ -122,24 +146,33 @@ fn parse_expr(
         should_end
     );
     let span = expr.1.clone();
-    ast.push((
-        Node::Expr(expr),
-        Span {
-            start: span.start,
-            end: buf.current().unwrap().1.start
+    ast.push(
+        Node {
+            kind: NodeKind::Expr(expr),
+            span: Span {
+                start: span.start,
+                end: buf.current().unwrap().1.start
+            },
+            extra,
         }
-    ));
+    );
 
     should_end(buf, errs)
 }
 
 fn parse_empty(
     buf: &mut Buffer<AToken>,
-    src: &str,
-    ast: &mut UntypedAst,
+    _src: &str,
+    _ast: &mut UntypedAst,
+    vis: Option<(Visibility, Span)>,
+    link: Option<(Linkage, Span)>,
+    _extra: NodeExtra,
     errs: &mut Errors,
     should_end: ShouldEndFn<'_>,
 ) -> bool {
+    disable_vis!(vis, buf, errs, should_end);
+    disable_link!(vis, buf, errs, should_end);
+
     buf.next();
     should_end(buf, errs)
 }
@@ -148,6 +181,9 @@ fn parse_let(
     buf: &mut Buffer<AToken>,
     src: &str,
     ast: &mut UntypedAst,
+    vis: Option<(Visibility, Span)>,
+    link: Option<(Linkage, Span)>,
+    extra: NodeExtra,
     errs: &mut Errors,
     should_end: ShouldEndFn<'_>,
 ) -> bool {
@@ -172,17 +208,22 @@ fn parse_let(
         None => error!(ParseError::RanOutTokens, span, buf, errs, should_end),
     };
 
-    ast.push((
-        Node::VarDeclare {
-            ident: (ident, idspan),
-            typ,
-            expr
-        },
-        Span {
-            start: span.start,
-            end,
+    ast.push(
+        Node {
+            kind: NodeKind::VarDeclare {
+                vis,
+                link,
+                ident: (ident, idspan),
+                typ,
+                expr
+            },
+            span: Span {
+                start: span.start,
+                end,
+            },
+            extra
         }
-    ));
+    );
 
     should_end(buf, errs)
 }
@@ -191,9 +232,15 @@ fn parse_scope(
     buf: &mut Buffer<AToken>,
     src: &str,
     ast: &mut UntypedAst,
+    vis: Option<(Visibility, Span)>,
+    link: Option<(Linkage, Span)>,
+    extra: NodeExtra,
     errs: &mut Errors,
     should_end: ShouldEndFn<'_>,
 ) -> bool {
+    disable_vis!(vis, buf, errs, should_end);
+    disable_link!(link, buf, errs, should_end);
+
     let start = buf.next().unwrap().1.clone();
 
     let mut new_ast = UntypedAst::new();
@@ -201,19 +248,22 @@ fn parse_scope(
 
     let end = buf.next().map_or_else(Span::default, |a| a.1.clone());
 
-    ast.push((
-        Node::Scope {
-            body: new_ast,
+    ast.push(
+        Node {
+            kind: NodeKind::Scope {
+                body: new_ast,
+                span: Span {
+                    start: start.start,
+                    end: end.end,
+                }
+            },
             span: Span {
                 start: start.start,
                 end: end.end,
-            }
-        },
-        Span {
-            start: start.start,
-            end: end.end,
-        },
-    ));
+            },
+            extra
+        }
+    );
 
     should_end(buf, errs)
 }
@@ -222,9 +272,15 @@ fn parse_while(
     buf: &mut Buffer<AToken>,
     src: &str,
     ast: &mut UntypedAst,
+    vis: Option<(Visibility, Span)>,
+    link: Option<(Linkage, Span)>,
+    extra: NodeExtra,
     errs: &mut Errors,
     should_end: ShouldEndFn<'_>,
 ) -> bool {
+    disable_vis!(vis, buf, errs, should_end);
+    disable_link!(link, buf, errs, should_end);
+
     let start = buf.next().unwrap().1.clone();
 
     let expr = consider_error!(
@@ -243,22 +299,64 @@ fn parse_while(
 
     let end = buf.next().map_or_else(Span::default, |a| a.1.clone());
 
-    ast.push((
-        Node::While {
-            cond: expr,
-            body: new_ast,
+    ast.push(
+        Node {
+            kind: NodeKind::While {
+                cond: expr,
+                body: new_ast,
+                span: Span {
+                    start: expr_span.end,
+                    end: end.end
+                }
+            },
             span: Span {
-                start: expr_span.end,
-                end: end.end
-            }
-        },
-        Span {
-            start: start.start,
-            end: end.end,
-        },
-    ));
+                start: start.start,
+                end: end.end,
+            },
+            extra
+        }
+    );
 
     should_end(buf, errs)
+}
+
+fn parse_visibility(
+    buf: &mut Buffer<AToken>,
+    _src: &str,
+    _ast: &mut UntypedAst,
+    _errs: &mut Errors,
+    _should_end: ShouldEndFn<'_>,
+) -> Option<(Visibility, Span)> {
+    match buf.next() {
+        Some((Token::Pub, span)) => {
+            Some((Visibility::Public, span.clone()))
+        },
+        _ => {
+            buf.rewind();
+            None
+        },
+    }
+}
+
+fn parse_linkage(
+    buf: &mut Buffer<AToken>,
+    _src: &str,
+    _ast: &mut UntypedAst,
+    _errs: &mut Errors,
+    _should_end: ShouldEndFn<'_>,
+) -> Option<(Linkage, Span)> {
+    match buf.next() {
+        Some((Token::Extern, span)) => {
+            Some((Linkage::External, span.clone()))
+        },
+        Some((Token::Static, span)) => {
+            Some((Linkage::Static, span.clone()))
+        },
+        _ => {
+            buf.rewind();
+            None
+        },
+    }
 }
 
 fn parse_scope_end(start: usize) -> Box<ShouldEndFnInner> {

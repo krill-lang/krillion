@@ -47,6 +47,14 @@ pub enum Token {
     #[token("return")]
     Return,
 
+    #[token("pub")]
+    Pub,
+
+    #[token("extern")]
+    Extern,
+    #[token("static")]
+    Static,
+
     #[token("if")]
     If,
     #[token("else")]
