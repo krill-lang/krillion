@@ -44,11 +44,17 @@ macro_rules! error {
 }
 
 macro_rules! unwrap_ident {
-    ($span: expr, $buf: expr, $src: expr, $errs: expr, $should_end: expr) => {
+    ($buf: expr, $src: expr, $errs: expr, $should_end: expr) => {
         match $buf.next() {
             Some((Token::Ident, s)) => ($src[s.start..s.end].to_string(), s.clone()),
             Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), $buf, $errs, $should_end),
-            None => error!(ParseError::RanOutTokens, $span, $buf, $errs, $should_end),
+            None => error!(
+                ParseError::RanOutTokens,
+                $buf.prev().unwrap().1.clone(),
+                $buf,
+                $errs,
+                $should_end
+            ),
         }
     };
 }
@@ -118,12 +124,14 @@ fn parse_inner(
     let linkage = parse_linkage(buf, src, ast, errs, should_end);
 
     (match buf.peek() {
-        Some((Token::Semicolon, _)) => parse_empty,
+        Some((Token::Semicolon, _)) => parse_end,
         Some((Token::Let, _)) => parse_let,
         Some((Token::CuBracketS, _)) => parse_scope,
+        Some((Token::CuBracketE, _)) => parse_end,
         Some((Token::While, _)) => parse_while,
+        Some((Token::Fn, _)) => parse_fn,
         Some(_) => parse_expr,
-        None => parse_empty,
+        None => parse_end,
     })(buf, src, ast, visibility, linkage, NodeExtra::default(), errs, should_end)
 }
 
@@ -160,7 +168,7 @@ fn parse_expr(
     should_end(buf, errs)
 }
 
-fn parse_empty(
+fn parse_end(
     buf: &mut Buffer<AToken>,
     _src: &str,
     _ast: &mut UntypedAst,
@@ -171,10 +179,11 @@ fn parse_empty(
     should_end: ShouldEndFn<'_>,
 ) -> bool {
     disable_vis!(vis, buf, errs, should_end);
-    disable_link!(vis, buf, errs, should_end);
+    disable_link!(link, buf, errs, should_end);
 
+    let result = should_end(buf, errs);
     buf.next();
-    should_end(buf, errs)
+    result
 }
 
 fn parse_let(
@@ -189,7 +198,7 @@ fn parse_let(
 ) -> bool {
     let span = buf.next().unwrap().1.clone();
 
-    let (ident, idspan) = unwrap_ident!(span, buf, src, errs, should_end);
+    let (ident, id_span) = unwrap_ident!(buf, src, errs, should_end);
 
     let typ = match buf.peek() {
         Some((Token::Operator(Operator::Assign), _)) => None,
@@ -213,7 +222,7 @@ fn parse_let(
             kind: NodeKind::VarDeclare {
                 vis,
                 link,
-                ident: (ident, idspan),
+                ident: (ident, id_span),
                 typ,
                 expr
             },
@@ -318,6 +327,115 @@ fn parse_while(
     );
 
     should_end(buf, errs)
+}
+
+fn parse_fn(
+    buf: &mut Buffer<AToken>,
+    src: &str,
+    ast: &mut UntypedAst,
+    vis: Option<(Visibility, Span)>,
+    link: Option<(Linkage, Span)>,
+    extra: NodeExtra,
+    errs: &mut Errors,
+    should_end: ShouldEndFn<'_>,
+) -> bool {
+    let span = buf.next().unwrap().1.clone();
+
+    let ident = unwrap_ident!(buf, src, errs, should_end);
+    assert_token!(Token::RoBracketS, buf, errs, should_end);
+
+    let mut params = Vec::new();
+    while !matches!(buf.peek(), Some((Token::RoBracketE, _))) {
+        let param = parse_fn_param(buf, src, errs, should_end);
+        if let Ok(param) = param {
+            params.push(param);
+        } else {
+            return unsafe { param.unwrap_err_unchecked() };
+        }
+    }
+
+    buf.next();
+
+    let (return_type, start) = match buf.next() {
+        Some((Token::CuBracketS, span)) => ((
+            Type::BuiltIn(BuiltInType::Unit),
+            Span { start: span.start, end: span.start }
+        ), span.clone()),
+        Some(_) => {
+            buf.rewind();
+            let typ = consider_error!(types::parse(buf, src), buf, errs, should_end);
+            assert_token!(Token::CuBracketS, buf, errs, should_end);
+            let start = buf.current().unwrap().1.clone();
+            (typ, start)
+        },
+        _ => todo!(),
+    };
+
+    let mut new_ast = UntypedAst::new();
+    parse_more(buf, src, &mut new_ast, errs, &*parse_scope_end(start.start));
+
+    let end = buf.next().map_or_else(Span::default, |a| a.1.clone());
+
+    ast.push(
+        Node {
+            kind: NodeKind::FunctionDeclare {
+                vis,
+                link,
+                ident,
+                params,
+                return_type,
+                body: new_ast,
+                span: Span {
+                    start: start.start,
+                    end: end.end,
+                }
+            },
+            span: Span {
+                start: span.start,
+                end: end.end,
+            },
+            extra
+        }
+    );
+
+    should_end(buf, errs)
+}
+
+fn parse_fn_param(
+    buf: &mut Buffer<AToken>,
+    src: &str,
+    errs: &mut Errors,
+    should_end: ShouldEndFn<'_>,
+) -> Result<(AString, AType, Span), bool> {
+    let should_end = |buf, errs| {
+        Err(should_end(buf, errs))
+    };
+
+    let ident = unwrap_ident!(buf, src, errs, should_end);
+    let typ = consider_error!(types::parse(buf, src), buf, errs, should_end);
+
+    match buf.next() {
+        Some((Token::Comma, _)) => (),
+        Some((Token::RoBracketE, _)) => buf.rewind(),
+        Some((_, s)) => error!(
+            ParseError::UnexpectedToken, s.clone(),
+            buf,
+            errs,
+            should_end
+        ),
+        None => error!(
+            ParseError::RanOutTokens,
+            buf.prev().unwrap().1.clone(),
+            buf,
+            errs,
+            should_end
+        ),
+    }
+
+    let start = ident.1.start;
+    let end = typ.1.end;
+
+    Ok((ident, typ, Span { start, end }))
 }
 
 fn parse_visibility(

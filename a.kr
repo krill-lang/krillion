@@ -1,3 +1,2 @@
-while 1 {
-	static let a = 0
+pub static fn main() {
 }

@@ -10,14 +10,16 @@ pub enum HighlightToken {
     #[token("str")]
     #[token("int")]
     #[token("uint")]
-    #[regex(r"[iu](8|16|32|64|128)", priority = 3)]
+    #[token("unit")]
+    #[regex(r"[iu](8|16|32|64|128)", priority = 10)]
     BuiltIn,
 
     #[token(";")]
     #[regex(r"[\s]+", priority = 3)]
     #[regex(r"//[^\n]*")]
     #[regex(r"[^\\]?\\\n")]
-    #[regex(r"/\*([^*]|\*[^/])*\*/")]
+    #[token(r"/*")]
+    #[token(r"*/")]
     Unused,
 
     #[token("(")]
@@ -54,25 +56,24 @@ pub enum HighlightToken {
     Scope,
     #[token(".")]
     Of,
-
-    #[regex(r".", priority = 1)]
-    Unknown,
 }
 
-impl HighlightToken {
-    pub fn highlight(&self, next: Option<&Self>, text: &str) -> String {
-        use HighlightToken::*;
-        String::new()
-            + "\x1b["
-            + match (self, next) {
-                (Ident, Some(RoBracketS)) => "34",
-                (Ident | RoBracketS | Brackets | Comma | Of, _) => "37",
-                (Integer | BuiltIn, _) => "33",
-                (Keyword | Operator, _) => "35",
-                (Unused | Scope, _) => "90",
-                (Unknown, _) => "1;31",
-            }
-            + "m"
-            + text
-    }
+pub fn highlight(
+    this: Result<HighlightToken, ()>,
+    next: &Option<Result<HighlightToken, ()>>,
+    text: &str
+) -> String {
+    use HighlightToken::*;
+    String::new()
+        + "\x1b["
+        + match (this, next) {
+            (Ok(Ident), Some(Ok(RoBracketS))) => "34",
+            (Ok(Ident | RoBracketS | Brackets | Comma | Of), _) => "37",
+            (Ok(Integer | BuiltIn), _) => "33",
+            (Ok(Keyword | Operator), _) => "35",
+            (Ok(Unused | Scope), _) => "90",
+            (Err(_), _) => "1;31",
+        }
+        + "m"
+        + text
 }

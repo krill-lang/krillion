@@ -138,7 +138,6 @@ fn report_single<E: CompilerError>(
         let hl_content = trim_el.to_string() + "\n";
 
         let mut hl = HighlightToken::lexer(&hl_content);
-        let mut hl = to_atoken_buf(&mut hl).0;
 
         let spaces = span.start.saturating_sub(ctx.cat[i - 1]);
 
@@ -149,7 +148,9 @@ fn report_single<E: CompilerError>(
 
         let line_start = ctx.cat[i-1];
 
-        while let Some((tok, tok_span)) = hl.next().cloned() {
+        let mut next = hl.next();
+        while let Some(tok) = next {
+            let tok_span = hl.span();
             let src = &hl_content.slice(tok_span.clone()).unwrap();
             let src = src.replace('\t', "    ").replace('\n', "");
 
@@ -157,6 +158,7 @@ fn report_single<E: CompilerError>(
                 span.contains(&(tok_span.start + line_start))
                 || span.contains(&(tok_span.end + line_start - 1));
 
+            next = hl.next();
             write!(
                 fin,
                 "{}{}\x1b[0m",
@@ -168,7 +170,7 @@ fn report_single<E: CompilerError>(
                     ""
                 },
                 if !no_highlight {
-                    tok.highlight(hl.peek().map(|(t, _)| t), &src)
+                    highlight(tok, &next, &src)
                 } else {
                     src
                 }
