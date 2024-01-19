@@ -1,2 +1,1 @@
-pub static fn main() {
-}
+fn main() {

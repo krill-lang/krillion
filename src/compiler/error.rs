@@ -75,7 +75,7 @@ fn report_single<E: CompilerError>(
     let no_highlight = matches!(ctx.args.error_style, ErrorStyle::NoHighlight);
 
     let start = ctx.source[..span.start].matches('\n').count() + 1;
-    let end = ctx.source[..span.end-1].matches('\n').count() + 1;
+    let end = ctx.source[..span.end.saturating_sub(1)].matches('\n').count() + 1;
     let lines = end - start;
 
     let chw = end.ilog10() as usize + 1;
