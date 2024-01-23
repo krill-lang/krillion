@@ -46,7 +46,7 @@ fn main() {
     let mut pp = unwrap_or_report!(preprocess(&mut buf));
 
     let ast = unwrap_or_report!(parse(&mut pp, &src));
-    println!("{ast:#?}");
+    println!("root:\n{:?}", AstFormatter(&ast).formatter(1));
     // let typed = unwrap_or_report!(typecheck(&ast));
     // println!("{typed:#?}");
 }

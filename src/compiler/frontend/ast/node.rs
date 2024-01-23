@@ -4,7 +4,10 @@ pub type Ast<Kind> = Vec<Node<Kind>>;
 pub type UntypedAst = Ast<UntypedNode>;
 pub type TypedAst = Ast<TypedNode>;
 
-#[derive(Debug, Clone)]
+pub type UntypedNode = NodeKind<AExpr>;
+pub type TypedNode = NodeKind<(AExpr, Type)>;
+
+#[derive(Clone)]
 pub struct Node<Kind> {
     pub kind: Kind,
     pub span: Span,
@@ -26,10 +29,7 @@ pub enum Linkage {
     Static,
 }
 
-pub type UntypedNode = NodeKind<AExpr>;
-pub type TypedNode = NodeKind<(AExpr, Type)>;
-
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum NodeKind<Expr: std::fmt::Debug + Clone> {
     VarDeclare {
         vis: Option<(Visibility, Span)>,
@@ -54,8 +54,8 @@ pub enum NodeKind<Expr: std::fmt::Debug + Clone> {
         span: Span,
     },
     If {
-        main: Vec<(Expr, Ast<Self>, Span)>,
-        els: Option<Box<(Ast<Self>, Span)>>,
+        main: (Expr, Ast<Self>, Span),
+        els: Option<(Box<Node<Self>>, Span)>,
     },
     While {
         cond: Expr,
@@ -85,7 +85,7 @@ pub enum Expr {
 
 pub type Identifier = Vec<String>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Type {
     Pointer(Box<AType>),
     Slice(Box<AType>),
@@ -99,14 +99,14 @@ pub enum Type {
     Integer,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum TypeOperators {
     Pointer,
     Slice,
     Array(u128),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum BuiltInType {
     U8,
     U16,
@@ -226,5 +226,132 @@ impl std::fmt::Display for BuiltInType {
                 Unit => "unit",
             }
         )
+    }
+}
+
+pub struct AstFormatter<'a, N: DebugDepth>(pub &'a Ast<N>);
+
+impl<'a, N: DebugDepth> DebugDepth for AstFormatter<'a, N> {
+    fn format(&self, f: &mut std::fmt::Formatter, depth: usize) -> std::fmt::Result {
+        for (i, n) in self.0.iter().enumerate() {
+            writeln!(f, "{:│>1$}┬ {i}:", "├", depth)?;
+            n.format(f, depth + 1)?;
+        }
+
+        Ok(())
+    }
+}
+
+pub trait DebugDepth where Self: Sized {
+    fn format(&self, f: &mut std::fmt::Formatter, depth: usize) -> std::fmt::Result;
+
+    fn formatter(&self, depth: usize) -> Formatter<'_, Self> {
+        Formatter { depth, inner: self }
+    }
+}
+
+pub struct Formatter<'a, I: DebugDepth> {
+    depth: usize,
+    inner: &'a I
+}
+
+impl<'a, I: DebugDepth> std::fmt::Debug for Formatter<'a, I> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.inner.format(f, self.depth)
+    }
+}
+
+impl<K: DebugDepth> DebugDepth for Node<K> {
+    fn format(&self, f: &mut std::fmt::Formatter, depth: usize) -> std::fmt::Result {
+        writeln!(f, "{:│>1$}┬ kind:", "├", depth)?;
+        self.kind.format(f, depth + 1)?;
+        writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth, self.span)?;
+        writeln!(f, "{:│>1$}─ extra: {2:?}", "├", depth, self.extra)?;
+
+        Ok(())
+    }
+}
+
+impl<E: std::fmt::Debug + Clone> DebugDepth for NodeKind<E> {
+    fn format(&self, f: &mut std::fmt::Formatter, depth: usize) -> std::fmt::Result {
+        match self {
+            NodeKind::VarDeclare { vis, link, ident, typ, expr } => {
+                writeln!(f, "{:│>1$}┬ let:", "├", depth)?;
+                if let Some((vis, span)) = vis {
+                    writeln!(f, "{:│>1$}┬ vis: {vis:?}", "├", depth + 1)?;
+                    writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 2)?;
+                }
+                if let Some((link, span)) = link {
+                    writeln!(f, "{:│>1$}┬ link: {link:?}", "├", depth + 1)?;
+                    writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 2)?;
+                }
+                writeln!(f, "{:│>1$}─ ident: {ident:?}", "├", depth + 1)?;
+                if let Some((typ, span)) = typ {
+                    writeln!(f, "{:│>1$}┬ type: {typ}", "├", depth + 1)?;
+                    writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 2)?;
+                }
+                if let Some(expr) = expr {
+                    writeln!(f, "{:│>1$}─ expr: {expr:?}", "├", depth + 1)?;
+                }
+            },
+            NodeKind::Return(Some(rt)) => writeln!(f, "{:│>1$}─ return: {rt:?}", "├", depth)?,
+            NodeKind::Return(None) => writeln!(f, "{:│>1$}─ return", "├", depth)?,
+            NodeKind::Expr(expr) => writeln!(f, "{:│>1$}─ expr: {expr:?}", "├", depth)?,
+            NodeKind::Scope { body, span } => {
+                writeln!(f, "{:│>1$}┬ scope:", "├", depth)?;
+                writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 1)?;
+                writeln!(f, "{:│>1$}┬ body:", "├", depth + 1)?;
+                AstFormatter(body).format(f, depth + 2)?;
+            },
+            NodeKind::FunctionDeclare { vis, link, ident, params, return_type, body, span } => {
+                writeln!(f, "{:│>1$}┬ fn:", "├", depth)?;
+                if let Some((vis, span)) = vis {
+                    writeln!(f, "{:│>1$}┬ vis: {vis:?}", "├", depth + 1)?;
+                    writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 2)?;
+                }
+                if let Some((link, span)) = link {
+                    writeln!(f, "{:│>1$}┬ link: {link:?}", "├", depth + 1)?;
+                    writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 2)?;
+                }
+                writeln!(f, "{:│>1$}─ ident: {ident:?}", "├", depth + 1)?;
+                writeln!(f, "{:│>1$}┬ params:", "├", depth + 1)?;
+                for (i, p) in params.iter().enumerate() {
+                    writeln!(f, "{:│>1$}┬ {i}:", "├", depth + 2)?;
+                    writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 3, p.2)?;
+                    writeln!(f, "{:│>1$}┬ ident: {2}", "├", depth + 3, p.0.0)?;
+                    writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 4, p.0.1)?;
+                    writeln!(f, "{:│>1$}┬ type: {2}", "├", depth + 3, p.1.0)?;
+                    writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 4, p.1.1)?;
+                }
+                writeln!(f, "{:│>1$}┬ return_type: {2}", "├", depth + 1, return_type.0)?;
+                writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 2, return_type.1)?;
+                writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 1)?;
+                writeln!(f, "{:│>1$}┬ body:", "├", depth + 1)?;
+                AstFormatter(body).format(f, depth + 2)?;
+            },
+            NodeKind::If { main, els } => {
+                writeln!(f, "{:│>1$}┬ if:", "├", depth)?;
+                writeln!(f, "{:│>1$}┬ main:", "├", depth + 1)?;
+                writeln!(f, "{:│>1$}─ expr: {2:?}", "├", depth + 2, main.0)?;
+                writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 2, main.2)?;
+                writeln!(f, "{:│>1$}┬ body:", "├", depth + 2)?;
+                AstFormatter(&main.1).format(f, depth + 3)?;
+                if let Some(els) = els {
+                    writeln!(f, "{:│>1$}┬ else:", "├", depth + 1)?;
+                    writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 2, els.1)?;
+                    writeln!(f, "{:│>1$}┬ body:", "├", depth + 2)?;
+                    els.0.format(f, depth + 3)?;
+                }
+            },
+            NodeKind::While { cond, body, span } => {
+                writeln!(f, "{:│>1$}┬ while:", "├", depth)?;
+                writeln!(f, "{:│>1$}─ cond: {cond:?}", "├", depth + 1)?;
+                writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 1)?;
+                writeln!(f, "{:│>1$}┬ body:", "├", depth + 1)?;
+                AstFormatter(body).format(f, depth + 2)?;
+            },
+        }
+
+        Ok(())
     }
 }

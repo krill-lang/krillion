@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 logos = "0.13.0"
 clap = { path = "clap", features = ["derive"] }
+krillion-proc = { path = "krillion-proc" }
 unicode-width = "0.1.11"
 
 [profile.release]

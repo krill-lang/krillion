@@ -21,15 +21,17 @@ pub trait CompilerError {
 }
 
 pub enum Severeness {
-    Error, Warning
+    Error, Warning, Info
 }
 
 impl Severeness {
     fn as_str(&self, args: &Args) -> &'static str {
         match (self, args.alt_color) {
             (Self::Error, false) => "\x1b[1;31mError",
+            (Self::Error, true) => "\x1b[1;97mError",
             (Self::Warning, _) => "\x1b[1;33mWarning",
-            (Self::Error, true) => "\x1b[1;35mError",
+            (Self::Info, false) => "\x1b[1;32mInfo",
+            (Self::Info, true) => "\x1b[1;34mInfo",
         }
     }
 }
@@ -228,6 +230,8 @@ pub enum ParseError {
     ExpectingIdentifier,
 
     YourMom,
+
+    OnlyWorkInRoot,
 }
 
 impl CompilerError for ParseError {
@@ -248,6 +252,8 @@ impl CompilerError for ParseError {
             Self::ExpectingIdentifier => "expecting identifier".to_string(),
 
             Self::YourMom => "your mom is waiting you for dinner".to_string(),
+
+            Self::OnlyWorkInRoot => "this can only be used in module root".to_string(),
         }
     }
 
@@ -276,6 +282,7 @@ impl CompilerError for ParseError {
 
     fn severeness(&self) -> Severeness {
         match self {
+            Self::OnlyWorkInRoot => Severeness::Info,
             Self::YourMom => Severeness::Warning,
             _ => Severeness::Error,
         }

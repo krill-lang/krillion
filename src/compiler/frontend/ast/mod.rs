@@ -8,7 +8,6 @@ pub use node::*;
 // pub mod typecheck;
 // pub use typecheck::*;
 
-pub type AUntypedNode = (UntypedNode, Span);
 pub type AExpr = (Expr, Span);
 pub type AType = (Type, Span);
 pub type AString = (String, Span);
