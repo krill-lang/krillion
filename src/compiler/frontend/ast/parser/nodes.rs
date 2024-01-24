@@ -80,24 +80,13 @@ macro_rules! assert_token {
     };
 }
 
-macro_rules! disable_vis {
-    ($vis: expr, $err: expr, $should_end: expr) => {{
+macro_rules! vis {
+    (disable $vis: expr, $err: expr, $should_end: expr) => {{
         if $vis.is_some() {
             $err.push((ParseError::UnexpectedVisibility, $vis.unwrap().1));
         }
     }};
-}
-
-macro_rules! disable_link {
-    ($link: expr, $err: expr, $should_end: expr) => {{
-        if $link.is_some() {
-            $err.push((ParseError::UnexpectedLinkage, $link.unwrap().1));
-        }
-    }};
-}
-
-macro_rules! root_vis {
-    ($vis: expr, $err: expr, $should_end: expr, $depth: expr) => {{
+    (root $vis: expr, $err: expr, $should_end: expr, $depth: expr) => {{
         if $depth != 0 && $vis.is_some() {
             $err.push((ParseError::UnexpectedVisibility, $vis.as_ref().unwrap().1.clone()));
             $err.push((ParseError::OnlyWorkInRoot, $vis.as_ref().unwrap().1.clone()));
@@ -105,8 +94,13 @@ macro_rules! root_vis {
     }};
 }
 
-macro_rules! root_link {
-    ($link: expr, $err: expr, $should_end: expr, $depth: expr) => {{
+macro_rules! link {
+    (disable $link: expr, $err: expr, $should_end: expr) => {{
+        if $link.is_some() {
+            $err.push((ParseError::UnexpectedLinkage, $link.unwrap().1));
+        }
+    }};
+    (root $link: expr, $err: expr, $should_end: expr, $depth: expr) => {{
         if $depth != 0 && $link.is_some() {
             $err.push((ParseError::UnexpectedLinkage, $link.as_ref().unwrap().1.clone()));
             $err.push((ParseError::OnlyWorkInRoot, $link.as_ref().unwrap().1.clone()));
@@ -159,7 +153,7 @@ fn parse_inner(
 
 #[parser_fn]
 fn parse_expr() {
-    disable_vis!(vis, errs, should_end);
+    vis!(disable vis, errs, should_end);
 
     let expr = consider_error!(
         exprs::parse(buf, src, false),
@@ -184,8 +178,8 @@ fn parse_expr() {
 
 #[parser_fn]
 fn parse_end() {
-    disable_vis!(vis, errs, should_end);
-    disable_link!(link, errs, should_end);
+    vis!(disable vis, errs, should_end);
+    link!(disable link, errs, should_end);
 
     let result = should_end(buf, errs);
     buf.next();
@@ -194,8 +188,8 @@ fn parse_end() {
 
 #[parser_fn]
 fn parse_let() {
-    root_vis!(vis, errs, should_end, depth);
-    root_link!(link, errs, should_end, depth);
+    vis!(root vis, errs, should_end, depth);
+    link!(root link, errs, should_end, depth);
 
     let span = buf.next().unwrap().1.clone();
 
@@ -240,8 +234,8 @@ fn parse_let() {
 
 #[parser_fn]
 fn parse_scope() {
-    disable_vis!(vis, errs, should_end);
-    disable_link!(link, errs, should_end);
+    vis!(disable vis, errs, should_end);
+    link!(disable link, errs, should_end);
 
     let start = buf.next().unwrap().1.clone();
 
@@ -272,8 +266,8 @@ fn parse_scope() {
 
 #[parser_fn]
 fn parse_while() {
-    disable_vis!(vis, errs, should_end);
-    disable_link!(link, errs, should_end);
+    vis!(disable vis, errs, should_end);
+    link!(disable link, errs, should_end);
 
     let start = buf.next().unwrap().1.clone().start;
 
@@ -315,8 +309,8 @@ fn parse_while() {
 
 #[parser_fn]
 fn parse_fn() {
-    root_vis!(vis, errs, should_end, depth);
-    root_link!(link, errs, should_end, depth);
+    vis!(root vis, errs, should_end, depth);
+    link!(root link, errs, should_end, depth);
 
     let span = buf.next().unwrap().1.clone();
 
@@ -418,8 +412,8 @@ fn parse_fn_param(
 
 #[parser_fn]
 fn parse_return() {
-    disable_vis!(vis, errs, should_end);
-    disable_link!(link, errs, should_end);
+    vis!(disable vis, errs, should_end);
+    link!(disable link, errs, should_end);
 
     let span = buf.next().unwrap().1.clone();
 
@@ -448,8 +442,8 @@ fn parse_return() {
 
 #[parser_fn]
 fn parse_if() {
-    disable_vis!(vis, errs, should_end);
-    disable_link!(link, errs, should_end);
+    vis!(disable vis, errs, should_end);
+    link!(disable link, errs, should_end);
 
     let start = buf.next().unwrap().1.clone().start;
 

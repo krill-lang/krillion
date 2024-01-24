@@ -1,15 +1,12 @@
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::*;
 use syn::*;
 
-pub fn parse(args: TokenStream, item: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(args as );
+pub fn parse(_args: TokenStream, item: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(item as ItemFn);
 
     let ident = &ast.sig.ident;
     let body = &ast.block;
-
-    let mut checks = quote! {};
 
     quote! {
         fn #ident(
@@ -22,9 +19,6 @@ pub fn parse(args: TokenStream, item: TokenStream) -> TokenStream {
             errs: &mut Errors,
             should_end: ShouldEndFn<'_>,
             depth: usize,
-        ) -> bool {
-            #checks
-            #body
-        }
+        ) -> bool #body
     }.into()
 }
