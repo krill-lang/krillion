@@ -1,7 +1,7 @@
-use std::fmt::Write;
 use super::*;
 use crate::args::*;
 use frontend::*;
+use std::fmt::Write;
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone)]
@@ -21,7 +21,9 @@ pub trait CompilerError {
 }
 
 pub enum Severeness {
-    Error, Warning, Info
+    Error,
+    Warning,
+    Info,
 }
 
 impl Severeness {
@@ -40,7 +42,7 @@ pub fn report<E: CompilerError>(
     errs: Vec<AError<E>>,
     filename: &str,
     src: &str,
-    args: &Args
+    args: &Args,
 ) -> (String, bool) {
     let mut cat = Vec::with_capacity(src.split('\n').count());
     let mut j = 0;
@@ -70,14 +72,20 @@ pub fn report<E: CompilerError>(
 fn report_single<E: CompilerError>(
     err: &E,
     ctx: &ErrorContext<'_>,
-    span: Span
+    span: Span,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let is_simple = matches!(ctx.args.error_style, ErrorStyle::Simple);
-    let is_compact = matches!(ctx.args.error_style, ErrorStyle::Compact | ErrorStyle::NoHighlight);
+    let is_compact = matches!(
+        ctx.args.error_style,
+        ErrorStyle::Compact | ErrorStyle::NoHighlight
+    );
     let no_highlight = matches!(ctx.args.error_style, ErrorStyle::NoHighlight);
 
     let start = ctx.source[..span.start].matches('\n').count() + 1;
-    let end = ctx.source[..span.end.saturating_sub(1)].matches('\n').count() + 1;
+    let end = ctx.source[..span.end.saturating_sub(1)]
+        .matches('\n')
+        .count()
+        + 1;
     let lines = end - start;
 
     let chw = end.ilog10() as usize + 1;
@@ -102,7 +110,7 @@ fn report_single<E: CompilerError>(
         },
         ctx.filename,
         UnicodeWidthStr::width_cjk(start_cols) + start_cols.matches('\t').count() * 4 + 1,
-        UnicodeWidthStr::width_cjk(end_cols)   + end_cols  .matches('\t').count() * 4,
+        UnicodeWidthStr::width_cjk(end_cols) + end_cols.matches('\t').count() * 4,
     )?;
 
     if is_simple {
@@ -131,10 +139,7 @@ fn report_single<E: CompilerError>(
             continue;
         }
 
-        write!(
-            fin,
-            "\x1b[1;34m{i:<chw$} \u{2502}\x1b[0m ",
-        )?;
+        write!(fin, "\x1b[1;34m{i:<chw$} \u{2502}\x1b[0m ",)?;
 
         let trim_el = el.trim_end();
         let hl_content = trim_el.to_string() + "\n";
@@ -148,7 +153,7 @@ fn report_single<E: CompilerError>(
             .count();
         let bef_tabs = el[..spaces].matches('\t').count();
 
-        let line_start = ctx.cat[i-1];
+        let line_start = ctx.cat[i - 1];
 
         let mut next = hl.next();
         while let Some(tok) = next {
@@ -156,8 +161,7 @@ fn report_single<E: CompilerError>(
             let src = &hl_content.slice(tok_span.clone()).unwrap();
             let src = src.replace('\t', "    ").replace('\n', "");
 
-            let contains =
-                span.contains(&(tok_span.start + line_start))
+            let contains = span.contains(&(tok_span.start + line_start))
                 || span.contains(&(tok_span.end + line_start - 1));
 
             next = hl.next();
@@ -240,7 +244,9 @@ impl CompilerError for ParseError {
             Self::UnexpectedToken => "unexpected token".to_string(),
             Self::UnexpectedVisibility => "unexpected visibility qualifier".to_string(),
             Self::UnexpectedLinkage => "unexpected linkage specifier".to_string(),
-            Self::UnstartedBracket => "ending bracket have no matching starting bracket".to_string(),
+            Self::UnstartedBracket => {
+                "ending bracket have no matching starting bracket".to_string()
+            },
             Self::UnendedBracket => "starting bracket have no matching ending bracket".to_string(),
             Self::UnendedFnCall => "function call have no ending bracket".to_string(),
             Self::UnendedScope => "scope is not ended".to_string(),
@@ -265,15 +271,9 @@ impl CompilerError for ParseError {
             Self::UnexpectedVisibility | Self::UnexpectedLinkage => {
                 Some("remove this token".to_string())
             },
-            Self::UnendedFnCall | Self::UnendedBracket => {
-                Some("add a ending bracket".to_string())
-            },
-            Self::UnendedScope => {
-                Some("add a delimiter `}`".to_string())
-            },
-            Self::UnexpectedDelimiter => {
-                Some("remove this delimiter".to_string())
-            },
+            Self::UnendedFnCall | Self::UnendedBracket => Some("add a ending bracket".to_string()),
+            Self::UnendedScope => Some("add a delimiter `}`".to_string()),
+            Self::UnexpectedDelimiter => Some("remove this delimiter".to_string()),
             Self::UnstartedBracket => Some("add a starting bracket".to_string()),
             Self::YourMom => Some("have dinner".to_string()),
             _ => None,

@@ -61,7 +61,7 @@ pub enum HighlightToken {
 pub fn highlight(
     this: Result<HighlightToken, ()>,
     next: &Option<Result<HighlightToken, ()>>,
-    text: &str
+    text: &str,
 ) -> String {
     use HighlightToken::*;
     String::new()

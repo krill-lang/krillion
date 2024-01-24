@@ -20,12 +20,12 @@ pub(super) fn parse(
                     let mut span = $span.clone();
 
                     for _ in 0..n {
-                        let (o, s) = wrap_option!(out.pop(), (ParseError::RanOutOperands, $span.clone()))?;
+                        let (o, s) =
+                            wrap_option!(out.pop(), (ParseError::RanOutOperands, $span.clone()))?;
                         span.start = span.start.min(s.start);
                         span.end = span.end.max(s.end);
                         op.push((o, s));
                     }
-
 
                     op.reverse();
                     out.push((Expr::FnCall { id: id.clone(), op }, span));
@@ -34,7 +34,9 @@ pub(super) fn parse(
                 Operator::RoBracketS => {
                     ops.pop();
                 },
-                _ => { pop_oper_to_out_no_fn!($op, $span, $unary); },
+                _ => {
+                    pop_oper_to_out_no_fn!($op, $span, $unary);
+                },
             }
         };
     }
@@ -90,7 +92,7 @@ pub(super) fn parse(
 
     let mut expr_span = buf.peek().map_or_else(
         || buf.current().map_or_else(Span::default, |a| a.1.clone()),
-        |a| a.1.clone()
+        |a| a.1.clone(),
     );
 
     while let Some((tok, span)) = buf.next() {
