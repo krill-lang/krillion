@@ -1,5 +1,5 @@
 use super::*;
-use crate::args::*;
+use crate::args::{Args, ErrorStyle};
 use frontend::*;
 use std::fmt::Write;
 use unicode_width::UnicodeWidthStr;

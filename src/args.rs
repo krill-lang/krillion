@@ -1,4 +1,5 @@
-pub use clap::*;
+use clap::*;
+pub use clap::Parser;
 
 #[derive(Clone, Debug, Default, Parser)]
 pub struct Args {

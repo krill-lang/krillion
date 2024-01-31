@@ -1,4 +1,4 @@
-use core::mem::{copy, transmute};
+use core::mem::{transmute, transmute_copy};
 
 pub enum MaybeMutable<'a, A> {
     Mutable(&'a mut A),
@@ -9,7 +9,7 @@ impl<'a, A: Clone> MaybeMutable<'a, A> {
     #[allow(clippy::mut_from_ref)]
     pub fn unwrap_mut(&'a self) -> &'a mut A {
         match self {
-            Self::Mutable(ptr) => unsafe { transmute(copy(transmute::<_, &&A>(ptr))) },
+            Self::Mutable(ptr) => unsafe { transmute_copy(transmute::<_, &&A>(ptr)) },
             _ => panic!("called `unwrap_mut()` on immutable reference"),
         }
     }

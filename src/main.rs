@@ -14,12 +14,11 @@
     invalid_reference_casting,
     mutable_transmutes
 )]
-#![feature(mem_copy_fn)]
 
 mod compiler;
 use compiler::frontend::*;
 mod args;
-use args::*;
+use args::{Args, Parser};
 use std::process::exit;
 
 fn main() {
