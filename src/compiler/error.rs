@@ -27,7 +27,7 @@ pub enum Severeness {
 }
 
 impl Severeness {
-    fn as_str(&self, args: &Args) -> &'static str {
+    const fn as_str(&self, args: &Args) -> &'static str {
         match (self, args.alt_color) {
             (Self::Error, false) => "\x1b[1;31mError",
             (Self::Error, true) => "\x1b[1;97mError",
@@ -265,9 +265,9 @@ impl CompilerError for ParseError {
 
     fn consider(&self) -> Option<String> {
         match self {
-            Self::UnexpectedToken => {
-                Some("add a semicolon to end the current statement".to_string())
-            },
+            // Self::UnexpectedToken => {
+            //     Some("add a semicolon to end the current statement".to_string())
+            // },
             Self::UnexpectedVisibility | Self::UnexpectedLinkage => {
                 Some("remove this token".to_string())
             },

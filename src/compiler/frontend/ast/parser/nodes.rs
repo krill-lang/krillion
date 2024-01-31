@@ -1,7 +1,5 @@
-use super::super::*;
+use super::*;
 use krillion_proc::*;
-
-type Errors = Vec<AError<ParseError>>;
 
 pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> (UntypedAst, Errors) {
     let mut ast = UntypedAst::new();
@@ -28,6 +26,25 @@ macro_rules! consider_error {
                 error!(e, s, $b, $e, $se);
             },
             Ok(a) => a,
+        }
+    };
+}
+
+macro_rules! unwrap_or_return_set_buf {
+    ($expr: expr, $buf: expr, $else: expr) => {
+        match $expr {
+            Some(a) => a,
+            _ => {
+                while let Some((t, _)) = $buf.next() {
+                    if matches!(t, Token::Semicolon | Token::CuBracketS) {
+                        break;
+                    }
+                }
+
+                $buf.rewind();
+
+                return $else;
+            },
         }
     };
 }
@@ -127,9 +144,6 @@ macro_rules! link {
     }};
 }
 
-type ShouldEndFn<'a> = &'a ShouldEndFnInner;
-type ShouldEndFnInner = dyn Fn(&mut Buffer<AToken>, &mut Errors) -> bool;
-
 fn parse_more(
     buf: &mut Buffer<AToken>,
     src: &str,
@@ -216,11 +230,14 @@ fn parse_let() {
     let typ = match buf.peek() {
         Some((Token::Operator(Operator::Assign), _)) => None,
         Some((Token::Semicolon, _)) => None,
-        Some(_) => Some(consider_error!(
-            types::parse(buf, src),
+        Some(_) => Some(unwrap_or_return_set_buf!(
+            types::parse(
+                buf,
+                src,
+                errs,
+            ),
             buf,
-            errs,
-            should_end
+            should_end(buf, errs)
         )),
         None => error!(ParseError::RanOutTokens, span, buf, errs, should_end),
     };
@@ -371,7 +388,15 @@ fn parse_fn() {
         ),
         Some(_) => {
             buf.rewind();
-            let typ = consider_error!(types::parse(buf, src), buf, errs, should_end);
+            let typ = unwrap_or_return_set_buf!(
+                types::parse(
+                    buf,
+                    src,
+                    errs,
+                ),
+                buf,
+                should_end(buf, errs)
+            );
             let start = assert_token!(Token::CuBracketS, buf, errs, should_end).start;
             (typ, start)
         },
@@ -417,12 +442,20 @@ fn parse_fn_param(
     buf: &mut Buffer<AToken>,
     src: &str,
     errs: &mut Errors,
-    should_end: ShouldEndFn<'_>,
+    _should_end: ShouldEndFn<'_>,
 ) -> Result<(AString, AType, Span), bool> {
-    let should_end = |buf, errs| Err(should_end(buf, errs));
+    let should_end = |buf, errs| Err(_should_end(buf, errs));
 
     let ident = unwrap_ident!(buf, src, errs, should_end);
-    let typ = consider_error!(types::parse(buf, src), buf, errs, should_end);
+    let typ = unwrap_or_return_set_buf!(
+        types::parse(
+            buf,
+            src,
+            errs,
+        ),
+        buf,
+        should_end(buf, errs)
+    );
 
     match buf.next() {
         Some((Token::Comma, _)) => (),

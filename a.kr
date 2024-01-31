@@ -1,10 +1,1 @@
-fn main(args []str) int {
-	let b = 0
-	while c(b) {
-		b += 1
-	}
-
-	return b
-}
-
-let a = 0
+fn main() {}

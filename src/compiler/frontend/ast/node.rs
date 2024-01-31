@@ -98,12 +98,12 @@ pub enum Type {
     Integer,
 }
 
-#[derive(Clone)]
+/* #[derive(Clone)]
 pub enum TypeOperators {
     Pointer,
     Slice,
     Array(u128),
-}
+} */
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum BuiltInType {
@@ -275,7 +275,7 @@ impl<K: DebugDepth> DebugDepth for Node<K> {
 impl<E: std::fmt::Debug + Clone> DebugDepth for NodeKind<E> {
     fn format(&self, f: &mut std::fmt::Formatter, depth: usize) -> std::fmt::Result {
         match self {
-            NodeKind::VarDeclare {
+            Self::VarDeclare {
                 vis,
                 link,
                 ident,
@@ -300,16 +300,16 @@ impl<E: std::fmt::Debug + Clone> DebugDepth for NodeKind<E> {
                     writeln!(f, "{:│>1$}─ expr: {expr:?}", "├", depth + 1)?;
                 }
             },
-            NodeKind::Return(Some(rt)) => writeln!(f, "{:│>1$}─ return: {rt:?}", "├", depth)?,
-            NodeKind::Return(None) => writeln!(f, "{:│>1$}─ return", "├", depth)?,
-            NodeKind::Expr(expr) => writeln!(f, "{:│>1$}─ expr: {expr:?}", "├", depth)?,
-            NodeKind::Scope { body, span } => {
+            Self::Return(Some(rt)) => writeln!(f, "{:│>1$}─ return: {rt:?}", "├", depth)?,
+            Self::Return(None) => writeln!(f, "{:│>1$}─ return", "├", depth)?,
+            Self::Expr(expr) => writeln!(f, "{:│>1$}─ expr: {expr:?}", "├", depth)?,
+            Self::Scope { body, span } => {
                 writeln!(f, "{:│>1$}┬ scope:", "├", depth)?;
                 writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 1)?;
                 writeln!(f, "{:│>1$}┬ body:", "├", depth + 1)?;
                 AstFormatter(body).format(f, depth + 2)?;
             },
-            NodeKind::FunctionDeclare {
+            Self::FunctionDeclare {
                 vis,
                 link,
                 ident,
@@ -349,7 +349,7 @@ impl<E: std::fmt::Debug + Clone> DebugDepth for NodeKind<E> {
                 writeln!(f, "{:│>1$}┬ body:", "├", depth + 1)?;
                 AstFormatter(body).format(f, depth + 2)?;
             },
-            NodeKind::If { main, els } => {
+            Self::If { main, els } => {
                 writeln!(f, "{:│>1$}┬ if:", "├", depth)?;
                 writeln!(f, "{:│>1$}┬ main:", "├", depth + 1)?;
                 writeln!(f, "{:│>1$}─ expr: {2:?}", "├", depth + 2, main.0)?;
@@ -363,7 +363,7 @@ impl<E: std::fmt::Debug + Clone> DebugDepth for NodeKind<E> {
                     els.0.format(f, depth + 3)?;
                 }
             },
-            NodeKind::While { cond, body, span } => {
+            Self::While { cond, body, span } => {
                 writeln!(f, "{:│>1$}┬ while:", "├", depth)?;
                 writeln!(f, "{:│>1$}─ cond: {cond:?}", "├", depth + 1)?;
                 writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 1)?;

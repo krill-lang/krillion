@@ -1,7 +1,52 @@
-use super::super::*;
-use crate::compiler::util::*;
+use super::*;
+use krillion_proc::*;
 
-pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AType, (ParseError, Span)> {
+#[type_parser_fn]
+fn parse() {
+    match buf.next() {
+        Some((Token::Ident, span)) => {
+            let typ = Type::from_str(src.slice(span.clone()).unwrap());
+            Some((typ, span.clone()))
+        },
+        Some((Token::Operator(Operator::BAnd), Span { start, .. })) => {
+            let start = *start;
+            let inner = parse(buf, src, errs);
+            inner.map(|inner| {
+                let end = inner.1.end;
+                (
+                    Type::Pointer(Box::new(inner)),
+                    Span { start, end },
+                )
+            })
+        },
+        Some((Token::Operator(Operator::LAnd), span)) => {
+            let start_1 = span.start;
+            let start_2 = span.start + 1;
+            let inner = parse(buf, src, errs);
+            inner.map(|inner| {
+                let end = inner.1.end;
+                (
+                    Type::Pointer(Box::new((
+                        Type::Pointer(Box::new(inner)),
+                        Span { start: start_2, end }
+                    ))),
+                    Span { start: start_1, end },
+                )
+            })
+        },
+        Some((_, span)) => {
+            errs.push((ParseError::UnexpectedToken, span.clone()));
+            None
+        },
+        None => {
+            let prev = buf.prev().map_or_else(Span::default, |a| a.1.clone());
+            errs.push((ParseError::RanOutTokens, prev));
+            None
+        },
+    }
+}
+
+/* pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AType, (ParseError, Span)> {
     let mut typ_opers: Vec<(TypeOperators, Span)> = Vec::new();
 
     macro_rules! assert_token {
@@ -74,4 +119,4 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> Result<AType, (ParseError, 
     }
 
     Err((ParseError::RanOutTokens, buf.prev().unwrap().1.clone()))
-}
+} */
