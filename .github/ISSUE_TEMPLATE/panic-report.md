@@ -20,7 +20,8 @@ Steps to reproduce the behavior:
 1. Run `krillion source.kr`
 
 Source code file(s):
-`source.kr`: ```
+`source.kr`:
+```
 // ...
 ```
 
