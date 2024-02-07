@@ -14,6 +14,10 @@ pub struct Args {
 
     #[arg(long, help = "Change error message colors for colorblind people", action = ArgAction::SetTrue)]
     pub alt_color: bool,
+
+    #[cfg(feature = "unstable")]
+    #[arg(long, help = "Panic on startup")]
+    pub panics: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, ValueEnum)]

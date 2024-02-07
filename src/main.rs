@@ -25,9 +25,13 @@ use std::process::exit;
 fn main() {
     crash::setup();
 
-    panic!("hey its me");
-
     let args = Args::parse();
+
+    #[cfg(feature = "unstable")]
+    if let Some(msg) = args.panics {
+        std::panic::panic_any(format!("{msg}"));
+    }
+
     let filename = &args.input;
 
     let src = std::fs::read_to_string(filename).unwrap();

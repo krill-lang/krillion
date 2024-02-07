@@ -1,6 +1,7 @@
 use std::panic::*;
 use std::thread;
 use backtrace::*;
+use panic_message::*;
 
 const MAX_BACKTRACE: usize = 10;
 
@@ -13,11 +14,11 @@ pub fn setup() {
         if let Some(location) = info.location() {
             println!("  \x1b[1mLocation:\x1b[0m `{location}`");
         }
-        if let Some(payload) = info.payload().downcast_ref::<&'static str>() {
-            println!("  \x1b[1mMessage:\x1b[0m `{payload}`");
+        if let Some(message) = get_panic_info_message(info) {
+            println!("  \x1b[1mMessage:\x1b[0m `{message}`");
         }
 
-        println!("  \x1b[1mStack trace:\x1b[0m");
+        println!("  \x1b[1mStack backtrace:\x1b[0m");
         unsafe {
             let mut skipping = true;
             let mut nth = 0;
@@ -38,9 +39,9 @@ pub fn setup() {
 
                     if !skipping {
                         if !hit {
-                            print!("      \x1b[1m{nth}:\x1b[0m ");
+                            print!("    \x1b[1m{nth}:\x1b[0m ");
                         } else {
-                            print!("         ");
+                            print!("       ");
                         }
 
                         if let Some(name) = symbol.name() {
@@ -49,16 +50,10 @@ pub fn setup() {
                             println!("<unnamed>");
                         }
 
-                        if let (
-                            Some(f),
-                            Some(l),
-                            Some(c)
-                        ) = (
-                            symbol.filename(),
-                            symbol.lineno(),
-                            symbol.colno()
-                        ) {
-                            println!("            \x1b[1mAt\x1b[0m {}:{l}:{c}", f.display());
+                        if let (Some(f), Some(l)) = (symbol.filename(), symbol.lineno()) {
+                            print!("          \x1b[1mAt\x1b[0m {}:{l}", f.display());
+                            if let Some(c) = symbol.colno() { print!(":{c}"); }
+                            println!();
                         }
 
                         hit = true;
