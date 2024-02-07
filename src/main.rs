@@ -19,9 +19,14 @@ mod compiler;
 use compiler::frontend::*;
 mod args;
 use args::{Args, Parser};
+mod crash;
 use std::process::exit;
 
 fn main() {
+    crash::setup();
+
+    panic!("hey its me");
+
     let args = Args::parse();
     let filename = &args.input;
 
