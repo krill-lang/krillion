@@ -1,1 +1,3 @@
-fn main() {}
+fn main() {
+	pub let a = 0
+}

@@ -3,22 +3,24 @@ use std::thread;
 use backtrace::*;
 use panic_message::*;
 
-const MAX_BACKTRACE: usize = 10;
+const MAX_BACKTRACE: usize = 25;
 
-pub fn setup() {
+pub fn init() {
     set_hook(Box::new(|info| {
-        println!("\x1b[1;31mCompiler panic: details below\x1b[0m");
+        eprintln!("\x1b[1;31mCompiler panic: details below\x1b[0m");
+        eprintln!("  \x1b[1mCompiler commit:\x1b[0m `{}`", env!("COMMIT"));
         if let Some(thread) = thread::current().name() {
-            println!("  \x1b[1mThread:\x1b[0m `{thread}`");
+            eprintln!("  \x1b[1mThread:\x1b[0m `{thread}`");
         }
         if let Some(location) = info.location() {
-            println!("  \x1b[1mLocation:\x1b[0m `{location}`");
+            eprintln!("  \x1b[1mLocation:\x1b[0m `{location}`");
         }
         if let Some(message) = get_panic_info_message(info) {
-            println!("  \x1b[1mMessage:\x1b[0m `{message}`");
+            eprintln!("  \x1b[1mMessage:\x1b[0m `{message}`");
         }
 
-        println!("  \x1b[1mStack backtrace:\x1b[0m");
+        eprintln!("  \x1b[1mStack backtrace:\x1b[0m");
+        eprintln!("    \x1b[2m...\x1b[0m");
         unsafe {
             let mut skipping = true;
             let mut nth = 0;
@@ -37,37 +39,39 @@ pub fn setup() {
                         }
                     }
 
-                    if !skipping {
+                    if !skipping && nth < MAX_BACKTRACE {
+                        eprint!("\x1b[1A");
                         if !hit {
-                            print!("    \x1b[1m{nth}:\x1b[0m ");
+                            eprint!("    \x1b[1m{nth}:\x1b[0m ");
                         } else {
-                            print!("       ");
+                            eprint!("       ");
                         }
 
                         if let Some(name) = symbol.name() {
-                            println!("{name:#}");
+                            eprintln!("{name:#}");
                         } else {
-                            println!("<unnamed>");
+                            eprintln!("<unnamed>");
                         }
 
                         if let (Some(f), Some(l)) = (symbol.filename(), symbol.lineno()) {
-                            print!("          \x1b[1mAt\x1b[0m {}:{l}", f.display());
-                            if let Some(c) = symbol.colno() { print!(":{c}"); }
-                            println!();
+                            eprint!("          \x1b[1mAt\x1b[0m {}:{l}", f.display());
+                            if let Some(c) = symbol.colno() { eprint!(":{c}"); }
+                            eprintln!();
                         }
 
+                        eprintln!("    \x1b[2m...\x1b[0m");
                         hit = true;
                     }
                 });
 
                 nth += hit as usize;
 
-                nth < MAX_BACKTRACE
+                true
             })
         }
 
-        println!("\n\
+        eprintln!("\x1b[1A\x1b[2K\n\
 \x1b[1;32mInfo: please report this to \x1b[0;4;34mhttps://github.com/krill-lang/krillion/issues\
-\x1b[0;1;32m if this crash is not intentional\x1b[0m");
+\x1b[0;1;32m if this crash is not intentional\x1b[0m\n");
     }));
 }

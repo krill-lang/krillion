@@ -19,11 +19,11 @@ mod compiler;
 use compiler::frontend::*;
 mod args;
 use args::{Args, Parser};
-mod crash;
+mod panic;
 use std::process::exit;
 
 fn main() {
-    crash::setup();
+    panic::init();
 
     let args = Args::parse();
 

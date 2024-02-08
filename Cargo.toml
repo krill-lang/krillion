@@ -2,7 +2,7 @@
 name = "krillion"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.70.0"
+rust-version = "1.71.0" # 5 most recent versions
 
 [features]
 default = ["unstable"]
