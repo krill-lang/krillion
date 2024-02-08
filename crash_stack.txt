@@ -1,0 +1,45 @@
+Frame { ip: 0x300005d918, symbol_address: 0x300005d8f0 }
+Symbol { name: backtrace::backtrace::libunwind::trace::h96776a2cd3e466d9, addr: 0x5d917, filename: "/root/.cargo/registry/src/index.crates.io-6f17d22bba15001f/backtrace-0.3.69/src/backtrace/libunwind.rs", lineno: 93 }
+Symbol { name: backtrace::backtrace::trace_unsynchronized::hf0772cf3bdea8924, addr: 0x5d917, filename: "/root/.cargo/registry/src/index.crates.io-6f17d22bba15001f/backtrace-0.3.69/src/backtrace/mod.rs", lineno: 66 }
+Frame { ip: 0x3000066cb8, symbol_address: 0x3000066964 }
+Symbol { name: krillion::panic::init::{{closure}}::hc42507769c4b2213, addr: 0x66cb7, filename: "/root/krill/krillion/src/panic.rs", lineno: 28 }
+Frame { ip: 0x3000239a84, symbol_address: 0x3000239838 }
+Symbol { name: <alloc::boxed::Box<F,A> as core::ops::function::Fn<Args>>::call::hd7116abcd41fedcf, addr: 0x239a83, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/alloc/src/boxed.rs", lineno: 2029 }
+Symbol { name: std::panicking::rust_panic_with_hook::h427eb15a595c3a52, addr: 0x239a83, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/panicking.rs", lineno: 783 }
+Frame { ip: 0x300006f3c4, symbol_address: 0x300006f360 }
+Symbol { name: std::panicking::begin_panic::{{closure}}::h4bea5fd2901cd950, addr: 0x6f3c3, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/panicking.rs", lineno: 687 }
+Frame { ip: 0x300006845c, symbol_address: 0x3000068450 }
+Symbol { name: std::sys_common::backtrace::__rust_end_short_backtrace::h4da47706aa36bf62, addr: 0x6845b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/sys_common/backtrace.rs", lineno: 171 }
+Frame { ip: 0x300006f324, symbol_address: 0x300006f2ec }
+Symbol { name: std::panicking::begin_panic::hb2e1a1ad0417ce88, addr: 0x6f323, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/panicking.rs", lineno: 686 }
+Frame { ip: 0x3000064d7c, symbol_address: 0x3000064d74 }
+Symbol { name: std::panic::panic_any::h873c3ee0b799d85d, addr: 0x64d7b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/panic.rs", lineno: 63 }
+Frame { ip: 0x3000063700, symbol_address: 0x30000635c0 }
+Symbol { name: krillion::main::h30e1a649af9b01d9, addr: 0x636ff, filename: "/root/krill/krillion/src/main.rs", lineno: 32 }
+Frame { ip: 0x300005865c, symbol_address: 0x300005864c }
+Symbol { name: core::ops::function::FnOnce::call_once::h02d9d27832a36c83, addr: 0x5865b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/core/src/ops/function.rs", lineno: 250 }
+Frame { ip: 0x3000068474, symbol_address: 0x3000068460 }
+Symbol { name: std::sys_common::backtrace::__rust_begin_short_backtrace::h331343c89735b158, addr: 0x68473, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/sys_common/backtrace.rs", lineno: 155 }
+Frame { ip: 0x3000071df0, symbol_address: 0x3000071dd8 }
+Symbol { name: std::rt::lang_start::{{closure}}::h781bc2f2c6f104c1, addr: 0x71def, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/rt.rs", lineno: 166 }
+Frame { ip: 0x300023147c, symbol_address: 0x30002310d8 }
+Symbol { name: core::ops::function::impls::<impl core::ops::function::FnOnce<A> for &F>::call_once::hbdc1bb0a51f51453, addr: 0x23147b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/core/src/ops/function.rs", lineno: 284 }
+Symbol { name: std::panicking::try::do_call::hd2707f0fedd832a4, addr: 0x23147b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/panicking.rs", lineno: 552 }
+Symbol { name: std::panicking::try::ha7a7730334939b22, addr: 0x23147b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/panicking.rs", lineno: 516 }
+Symbol { name: std::panic::catch_unwind::h06ecce48f87351e6, addr: 0x23147b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/panic.rs", lineno: 142 }
+Symbol { name: std::rt::lang_start_internal::{{closure}}::h3c0cf56b71eaa4be, addr: 0x23147b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/rt.rs", lineno: 148 }
+Symbol { name: std::panicking::try::do_call::h5f1e76d1e4d8995f, addr: 0x23147b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/panicking.rs", lineno: 552 }
+Symbol { name: std::panicking::try::hdc5073a968de9854, addr: 0x23147b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/panicking.rs", lineno: 516 }
+Symbol { name: std::panic::catch_unwind::h289fffc1860ed103, addr: 0x23147b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/panic.rs", lineno: 142 }
+Symbol { name: std::rt::lang_start_internal::hddb6dfba10e4b5fa, addr: 0x23147b, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/rt.rs", lineno: 148 }
+Frame { ip: 0x3000071dc0, symbol_address: 0x3000071d70 }
+Symbol { name: std::rt::lang_start::hc4edcd184381c42a, addr: 0x71dbf, filename: "/rustc/fb5ed726f72c6d16c788517c60ec00d4564b9348/library/std/src/rt.rs", lineno: 165 }
+Frame { ip: 0x3000064460, symbol_address: 0x3000064434 }
+Symbol { name: "main" }
+Frame { ip: 0x77721973fc, symbol_address: 0x7772197390 }
+Symbol { name: "__libc_start_call_main", addr: 0x273fb, filename: "./csu/../sysdeps/nptl/libc_start_call_main.h", lineno: 58 }
+Frame { ip: 0x77721974cc, symbol_address: 0x7772197434 }
+Symbol { name: "__libc_start_main_impl", addr: 0x274cb, filename: "./csu/../csu/libc-start.c", lineno: 392 }
+Frame { ip: 0x300001ac70, symbol_address: 0x300001ac40 }
+Symbol { name: "_start" }
+Frame { ip: 0x0, symbol_address: 0x0 }
