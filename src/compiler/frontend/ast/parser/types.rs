@@ -1,8 +1,10 @@
 use super::*;
-use krillion_proc::*;
 
-#[type_parser_fn]
-fn parse() {
+pub fn parse(
+    buf: &mut Buffer<AToken>,
+    src: &str,
+    errs: &mut Errors,
+) -> Option<AType> {
     match buf.next() {
         Some((Token::Ident, span)) => {
             let typ = Type::from_str(src.slice(span.clone()).unwrap());

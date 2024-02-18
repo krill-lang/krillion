@@ -1,5 +1,4 @@
 use super::*;
-use krillion_proc::*;
 
 pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> (UntypedAst, Errors) {
     let mut ast = UntypedAst::new();
@@ -31,7 +30,7 @@ macro_rules! consider_error {
 }
 
 macro_rules! unwrap_or_return_set_buf {
-    ($expr: expr, $buf: expr, $else: expr) => {
+    ($expr: expr, $buf: expr) => {
         match $expr {
             Some(a) => a,
             _ => {
@@ -42,8 +41,7 @@ macro_rules! unwrap_or_return_set_buf {
                 }
 
                 $buf.rewind();
-
-                return $else;
+                return;
             },
         }
     };
@@ -74,7 +72,7 @@ macro_rules! unwrap_ident {
             ),
             None => error!(
                 ParseError::RanOutTokens,
-                $buf.prev().unwrap().1.clone(),
+                $self.buf.prev().unwrap().1.clone(),
                 $self
             ),
         }
@@ -108,39 +106,50 @@ macro_rules! vis {
     (root $vis: expr, $self: expr, $depth: expr) => {{
         if $depth != 0 && $vis.is_some() {
             $self.errs.push((
-                    ParseError::UnexpectedVisibility,
-                    $vis.as_ref().unwrap().1.clone(),
-                    ));
+                ParseError::UnexpectedVisibility,
+                $vis.as_ref().unwrap().1.clone(),
+            ));
             $self.errs.push((ParseError::OnlyWorkInRoot, $vis.as_ref().unwrap().1.clone()));
         }
     }};
 }
 
 macro_rules! link {
-    (disable $link: expr, $err: expr) => {{
+    (disable $link: expr, $self: expr) => {{
         if $link.is_some() {
-            $err.push((ParseError::UnexpectedLinkage, $link.unwrap().1));
+            $self.errs.push((ParseError::UnexpectedLinkage, $link.unwrap().1));
         }
     }};
-    (root $link: expr, $err: expr, $depth: expr) => {{
+    (root $link: expr, $self: expr, $depth: expr) => {{
         if $depth != 0 && $link.is_some() {
-            $err.push((
-                    ParseError::UnexpectedLinkage,
-                    $link.as_ref().unwrap().1.clone(),
-                    ));
-            $err.push((
-                    ParseError::OnlyWorkInRoot,
-                    $link.as_ref().unwrap().1.clone(),
-                    ));
+            $self.errs.push((
+                ParseError::UnexpectedLinkage,
+                $link.as_ref().unwrap().1.clone(),
+            ));
+            $self.errs.push((
+                ParseError::OnlyWorkInRoot,
+                $link.as_ref().unwrap().1.clone(),
+            ));
         }
     }};
 }
 
 impl<'a> Parser<'a> {
+    fn parse_more(
+        &mut self,
+        ast: &'a mut UntypedAst,
+        depth: usize
+    ) {
+        while !matches!(self.buf.peek(), Some((Token::CuBracketE, _)) | None) {
+            self.parse_inner(ast, depth)
+        }
+    }
+
     fn parse_inner(
         &mut self,
-        depth: usize,
-    ) -> bool {
+        ast: &'a mut UntypedAst,
+        depth: usize
+    ) {
         let visibility = self.parse_visibility();
         let linkage = self.parse_linkage();
 
@@ -157,6 +166,7 @@ impl<'a> Parser<'a> {
             None => Self::parse_end,
         })(
             self,
+            ast,
             visibility,
             linkage,
             NodeExtra::default(),
@@ -187,16 +197,18 @@ impl<'a> Parser<'a> {
 
     fn parse_expr(
         &mut self,
+        ast: &'a mut UntypedAst,
         vis: Option<(Visibility, Span)>,
         link: Option<(Linkage, Span)>,
         extra: NodeExtra,
         _depth: usize,
     ) {
         vis!(disable vis, self);
+        link!(disable link, self);
 
         let expr = consider_error!(exprs::parse(self.buf, self.src, false), self);
         let span = expr.1.clone();
-        self.ast.push(Node {
+        ast.push(Node {
             kind: NodeKind::Expr(expr),
             span: Span {
                 start: span.start,
@@ -205,122 +217,109 @@ impl<'a> Parser<'a> {
             extra,
         });
     }
-}
 
-fn parse_more(
-    buf: &mut Buffer<AToken>,
-    src: &str,
-    ast: &mut UntypedAst,
-    errs: &mut Errors,
-    should_end: ShouldEndFn<'_>,
-    depth: usize,
-) {
-    while parse_inner(buf, src, ast, errs, should_end, depth) {}
-}
+    fn parse_end(
+        &mut self,
+        ast: &'a mut UntypedAst,
+        vis: Option<(Visibility, Span)>,
+        link: Option<(Linkage, Span)>,
+        _extra: NodeExtra,
+        _depth: usize,
+    ) {
+        vis!(disable vis, self);
+        link!(disable link, self);
 
-#[parser_fn]
-fn parse_end() {
-    vis!(disable vis, errs, should_end);
-    link!(disable link, errs, should_end);
+        self.buf.next();
+    }
 
-    let result = should_end(buf, errs);
-    buf.next();
-    result
-}
+    fn parse_let(
+        &mut self,
+        ast: &'a mut UntypedAst,
+        vis: Option<(Visibility, Span)>,
+        link: Option<(Linkage, Span)>,
+        extra: NodeExtra,
+        depth: usize,
+    ) {
+        vis!(root vis, self, depth);
+        link!(root link, self, depth);
 
-#[parser_fn]
-fn parse_let() {
-    vis!(root vis, errs, should_end, depth);
-    link!(root link, errs, should_end, depth);
+        let span = self.buf.next().unwrap().1.clone();
 
-    let span = buf.next().unwrap().1.clone();
+        let (ident, id_span) = unwrap_ident!(self);
 
-    let (ident, id_span) = unwrap_ident!(buf, src, errs, should_end);
+        let typ = match self.buf.peek() {
+            Some((Token::Operator(Operator::Assign), _)) => None,
+            Some((Token::Semicolon, _)) => None,
+            Some(_) => Some(unwrap_or_return_set_buf!(
+                types::parse(
+                    self.buf,
+                    self.src,
+                    self.errs,
+                ),
+                self.buf
+            )),
+            None => error!(ParseError::RanOutTokens, span, self),
+        };
 
-    let typ = match buf.peek() {
-        Some((Token::Operator(Operator::Assign), _)) => None,
-        Some((Token::Semicolon, _)) => None,
-        Some(_) => Some(unwrap_or_return_set_buf!(
-            types::parse(
-                buf,
-                src,
-                errs,
-            ),
-            buf,
-            should_end(buf, errs)
-        )),
-        None => error!(ParseError::RanOutTokens, span, buf, errs, should_end),
-    };
+        let (expr, end) = match self.buf.next() {
+            Some((Token::Operator(Operator::Assign), _)) => {
+                let expr = consider_error!(exprs::parse(self.buf, self.src, false), self);
+                (Some(expr), self.buf.current().unwrap().1.start)
+            },
+            Some((Token::Semicolon, _)) => (None, self.buf.current().unwrap().1.start),
+            Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), self),
+            None => error!(ParseError::RanOutTokens, span, self),
+        };
 
-    let (expr, end) = match buf.next() {
-        Some((Token::Operator(Operator::Assign), _)) => {
-            let expr = consider_error!(exprs::parse(buf, src, false), buf, errs, should_end);
-            (Some(expr), buf.current().unwrap().1.start)
-        },
-        Some((Token::Semicolon, _)) => (None, buf.current().unwrap().1.start),
-        Some((_, s)) => error!(
-            ParseError::UnexpectedToken,
-            s.clone(),
-            buf,
-            errs,
-            should_end
-        ),
-        None => error!(ParseError::RanOutTokens, span, buf, errs, should_end),
-    };
+        ast.push(Node {
+            kind: NodeKind::VarDeclare {
+                vis,
+                link,
+                ident: (ident, id_span),
+                typ,
+                expr,
+            },
+            span: Span {
+                start: span.start,
+                end,
+            },
+            extra,
+        });
+    }
 
-    ast.push(Node {
-        kind: NodeKind::VarDeclare {
-            vis,
-            link,
-            ident: (ident, id_span),
-            typ,
-            expr,
-        },
-        span: Span {
-            start: span.start,
-            end,
-        },
-        extra,
-    });
+    fn parse_scope(
+        &mut self,
+        ast: &'a mut UntypedAst,
+        vis: Option<(Visibility, Span)>,
+        link: Option<(Linkage, Span)>,
+        extra: NodeExtra,
+        depth: usize,
+    ) {
+        vis!(disable vis, self);
+        link!(disable link, self);
 
-    should_end(buf, errs)
-}
+        let start = self.buf.next().unwrap().1.clone();
 
-#[parser_fn]
-fn parse_scope() {
-    vis!(disable vis, errs, should_end);
-    link!(disable link, errs, should_end);
+        let mut new_ast = UntypedAst::new();
+        self.parse_more(&mut new_ast, depth + 1);
 
-    let start = buf.next().unwrap().1.clone();
+        let end = self.buf.next().map_or_else(Span::default, |a| a.1.clone());
 
-    let mut new_ast = UntypedAst::new();
-    parse_more(
-        buf,
-        src,
-        &mut new_ast,
-        errs,
-        &*parse_scope_end(start.start),
-        depth + 1,
-    );
-
-    let end = buf.next().map_or_else(Span::default, |a| a.1.clone());
-
-    ast.push(Node {
-        kind: NodeKind::Scope {
-            body: new_ast,
+        ast.push(Node {
+            kind: NodeKind::Scope {
+                body: new_ast,
+                span: Span {
+                    start: start.start,
+                    end: end.end,
+                },
+            },
             span: Span {
                 start: start.start,
                 end: end.end,
             },
-        },
-        span: Span {
-            start: start.start,
-            end: end.end,
-        },
-        extra,
-    });
-
-    should_end(buf, errs)
+            extra,
+        });
+    }
 }
 
 #[parser_fn]
