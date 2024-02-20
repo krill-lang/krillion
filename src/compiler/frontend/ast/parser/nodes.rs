@@ -81,7 +81,7 @@ macro_rules! unwrap_ident {
 
 macro_rules! assert_token {
     ($intended: pat, $self: expr) => {
-        match $buf.next() {
+        match $self.buf.next() {
             Some(($intended, s)) => s.clone(),
             Some((_, s)) => error!(
                 ParseError::UnexpectedToken,
@@ -140,16 +140,17 @@ impl<'a> Parser<'a> {
         ast: &'a mut UntypedAst,
         depth: usize
     ) {
-        while !matches!(self.buf.peek(), Some((Token::CuBracketE, _)) | None) {
-            self.parse_inner(ast, depth)
-        }
+        // while !matches!(self.buf.peek(), Some((Token::CuBracketE, _)) | None) {
+        //     self.parse_inner(ast, depth)
+        // }
+        while self.parse_inner(ast, depth) {}
     }
 
     fn parse_inner(
         &mut self,
         ast: &'a mut UntypedAst,
         depth: usize
-    ) {
+    ) -> bool {
         let visibility = self.parse_visibility();
         let linkage = self.parse_linkage();
 
@@ -157,7 +158,7 @@ impl<'a> Parser<'a> {
             Some((Token::Semicolon, _)) => Self::parse_end,
             Some((Token::Let, _)) => Self::parse_let,
             Some((Token::CuBracketS, _)) => Self::parse_scope,
-            Some((Token::CuBracketE, _)) => Self::parse_end,
+            Some((Token::CuBracketE, _)) => return false,
             Some((Token::While, _)) => Self::parse_while,
             Some((Token::Fn, _)) => Self::parse_fn,
             Some((Token::Return, _)) => Self::parse_return,
@@ -171,7 +172,9 @@ impl<'a> Parser<'a> {
             linkage,
             NodeExtra::default(),
             depth,
-        )
+        );
+
+        true
     }
 
     fn parse_visibility(&mut self) -> Option<(Visibility, Span)> {
@@ -298,71 +301,80 @@ impl<'a> Parser<'a> {
         vis!(disable vis, self);
         link!(disable link, self);
 
-        let start = self.buf.next().unwrap().1.clone();
+        let scope = if let Some((a, _)) = self.parse_scope_impl(depth, extra) {
+            a
+        } else {
+            return
+        };
+
+        ast.push(scope);
+    }
+
+    fn parse_scope_impl(
+        &mut self, depth: usize, extra: NodeExtra
+    ) -> Option<(Node<UntypedNode>, Span)> {
+        let start = match self.buf.next() {
+            Some((Token::CuBracketS, s)) => s.start,
+            _ => return None,
+        };
 
         let mut new_ast = UntypedAst::new();
         self.parse_more(&mut new_ast, depth + 1);
 
-        let end = self.buf.next().map_or_else(Span::default, |a| a.1.clone());
+        let end = match self.buf.next() {
+            Some((Token::CuBracketE, s)) => s.end,
+            _ => return None,
+        };
 
-        ast.push(Node {
+        Some((Node {
             kind: NodeKind::Scope {
                 body: new_ast,
-                span: Span {
-                    start: start.start,
-                    end: end.end,
-                },
+                span: Span { start, end },
             },
-            span: Span {
-                start: start.start,
-                end: end.end,
+            span: Span { start, end },
+            extra,
+        }, Span { start, end }))
+    }
+
+    fn parse_while(
+        &mut self,
+        ast: &'a mut UntypedAst,
+        vis: Option<(Visibility, Span)>,
+        link: Option<(Linkage, Span)>,
+        extra: NodeExtra,
+        depth: usize,
+    ) {
+        vis!(disable vis, self);
+        link!(disable link, self);
+
+        let start = self.buf.next().unwrap().1.clone().start;
+
+        let expr = consider_error!(exprs::parse(self.buf, self.src, true), self);
+
+        self.buf.rewind();
+
+        let (body, span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
+            a
+        } else {
+            return
+        };
+        let body = Box::new(body);
+
+        ast.push(Node {
+            kind: NodeKind::While {
+                cond: expr,
+                body,
+                // span: Span {
+                //     start: scope_start,
+                //     end,
+                // },
             },
+            span: Span { start, end: span.end },
             extra,
         });
     }
 }
 
-#[parser_fn]
-fn parse_while() {
-    vis!(disable vis, errs, should_end);
-    link!(disable link, errs, should_end);
-
-    let start = buf.next().unwrap().1.clone().start;
-
-    let expr = consider_error!(exprs::parse(buf, src, true), buf, errs, should_end);
-
-    buf.rewind();
-    let scope_start = assert_token!(Token::CuBracketS, buf, errs, should_end).start;
-
-    let mut new_ast = UntypedAst::new();
-    parse_more(
-        buf,
-        src,
-        &mut new_ast,
-        errs,
-        &*parse_scope_end(scope_start),
-        depth + 1,
-    );
-
-    let end = buf.next().map_or_else(Span::default, |a| a.1.clone()).end;
-
-    ast.push(Node {
-        kind: NodeKind::While {
-            cond: expr,
-            body: new_ast,
-            span: Span {
-                start: scope_start,
-                end,
-            },
-        },
-        span: Span { start, end },
-        extra,
-    });
-
-    should_end(buf, errs)
-}
-
-#[parser_fn]
 fn parse_fn() {
     vis!(root vis, errs, should_end, depth);
     link!(root link, errs, should_end, depth);

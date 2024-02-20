@@ -58,8 +58,8 @@ pub enum NodeKind<Expr: std::fmt::Debug + Clone> {
     },
     While {
         cond: Expr,
-        body: Ast<Self>,
-        span: Span,
+        body: Box<Node<Self>>, // gonna be a scope
+        // span: Span,
     },
 }
 
@@ -363,12 +363,11 @@ impl<E: std::fmt::Debug + Clone> DebugDepth for NodeKind<E> {
                     els.0.format(f, depth + 3)?;
                 }
             },
-            Self::While { cond, body, span } => {
+            Self::While { cond, body } => {
                 writeln!(f, "{:│>1$}┬ while:", "├", depth)?;
                 writeln!(f, "{:│>1$}─ cond: {cond:?}", "├", depth + 1)?;
-                writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 1)?;
                 writeln!(f, "{:│>1$}┬ body:", "├", depth + 1)?;
-                AstFormatter(body).format(f, depth + 2)?;
+                body.format(f, depth + 2)?;
             },
         }
 
