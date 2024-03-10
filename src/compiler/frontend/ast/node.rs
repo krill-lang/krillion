@@ -49,11 +49,11 @@ pub enum NodeKind<Expr: std::fmt::Debug + Clone> {
         ident: AString,
         params: Vec<(AString, AType, Span)>,
         return_type: AType,
-        body: Ast<Self>,
+        body: Box<Node<Self>>,
         span: Span,
     },
     If {
-        main: (Expr, Ast<Self>, Span),
+        main: (Expr, Box<Node<Self>>, Span),
         els: Option<(Box<Node<Self>>, Span)>,
     },
     While {
