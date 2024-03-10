@@ -4,7 +4,9 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> (UntypedAst, Errors) {
     let mut ast = UntypedAst::new();
     let mut errs = Errors::new();
 
-    parse_more(buf, src, &mut ast, &mut errs, &parse_file_end, 0);
+    let mut parser = Parser { buf, src, errs: &mut errs };
+
+    parser.parse_more(&mut ast, 0);
 
     errs.push((
         ParseError::YourMom,
