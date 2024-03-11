@@ -7,7 +7,7 @@ pub type TypedAst = Ast<TypedNode>;
 pub type UntypedNode = NodeKind<AExpr>;
 pub type TypedNode = NodeKind<(AExpr, Type)>;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Node<Kind> {
     pub kind: Kind,
     pub span: Span,
@@ -28,7 +28,7 @@ pub enum Linkage {
     Static,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum NodeKind<Expr: std::fmt::Debug + Clone> {
     VarDeclare {
         vis: Option<(Visibility, Span)>,
@@ -84,7 +84,7 @@ pub enum Expr {
 
 pub type Identifier = Vec<String>;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Pointer(Box<AType>),
     Slice(Box<AType>),
@@ -105,7 +105,7 @@ pub enum TypeOperators {
     Array(u128),
 } */
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuiltInType {
     U8,
     U16,
@@ -228,6 +228,7 @@ impl std::fmt::Display for BuiltInType {
     }
 }
 
+/*
 pub struct AstFormatter<'a, N: DebugDepth>(pub &'a Ast<N>);
 
 impl<'a, N: DebugDepth> DebugDepth for AstFormatter<'a, N> {
@@ -347,7 +348,7 @@ impl<E: std::fmt::Debug + Clone> DebugDepth for NodeKind<E> {
                 writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 2, return_type.1)?;
                 writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 1)?;
                 writeln!(f, "{:│>1$}┬ body:", "├", depth + 1)?;
-                AstFormatter(body).format(f, depth + 2)?;
+                body.format(f, depth + 2)?;
             },
             Self::If { main, els } => {
                 writeln!(f, "{:│>1$}┬ if:", "├", depth)?;
@@ -355,7 +356,7 @@ impl<E: std::fmt::Debug + Clone> DebugDepth for NodeKind<E> {
                 writeln!(f, "{:│>1$}─ expr: {2:?}", "├", depth + 2, main.0)?;
                 writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 2, main.2)?;
                 writeln!(f, "{:│>1$}┬ body:", "├", depth + 2)?;
-                AstFormatter(&main.1).format(f, depth + 3)?;
+                main.1.format(f, depth + 3)?;
                 if let Some(els) = els {
                     writeln!(f, "{:│>1$}┬ else:", "├", depth + 1)?;
                     writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 2, els.1)?;
@@ -373,4 +374,4 @@ impl<E: std::fmt::Debug + Clone> DebugDepth for NodeKind<E> {
 
         Ok(())
     }
-}
+}*/

@@ -101,36 +101,36 @@ macro_rules! assert_token {
 
 macro_rules! vis {
     (disable $vis: expr, $self: expr) => {{
-        if $vis.is_some() {
-            $self.errs.push((ParseError::UnexpectedVisibility, $vis.unwrap().1));
+        if let Some(vis) = $vis {
+            $self.errs.push((ParseError::UnexpectedVisibility, vis.1));
         }
     }};
     (root $vis: expr, $self: expr, $depth: expr) => {{
-        if $depth != 0 && $vis.is_some() {
+        if let (Some(vis), true) = (&$vis, $depth != 0) {
             $self.errs.push((
                 ParseError::UnexpectedVisibility,
-                $vis.as_ref().unwrap().1.clone(),
+                vis.1.clone(),
             ));
-            $self.errs.push((ParseError::OnlyWorkInRoot, $vis.as_ref().unwrap().1.clone()));
+            $self.errs.push((ParseError::OnlyWorkInRoot, vis.1.clone()));
         }
     }};
 }
 
 macro_rules! link {
     (disable $link: expr, $self: expr) => {{
-        if $link.is_some() {
-            $self.errs.push((ParseError::UnexpectedLinkage, $link.unwrap().1));
+        if let Some(link) = $link {
+            $self.errs.push((ParseError::UnexpectedLinkage, link.1));
         }
     }};
     (root $link: expr, $self: expr, $depth: expr) => {{
-        if $depth != 0 && $link.is_some() {
+        if let (Some(link), true) = (&$link, $depth != 0) {
             $self.errs.push((
                 ParseError::UnexpectedLinkage,
-                $link.as_ref().unwrap().1.clone(),
+                link.1.clone(),
             ));
             $self.errs.push((
                 ParseError::OnlyWorkInRoot,
-                $link.as_ref().unwrap().1.clone(),
+                link.1.clone(),
             ));
         }
     }};
@@ -153,11 +153,14 @@ impl<'a> Parser<'a> {
         ast: &mut UntypedAst,
         depth: usize
     ) -> bool {
+        #[cfg(feature = "unstable")]
+        println!("{}", self.buf.idx);
+
         let visibility = self.parse_visibility();
         let linkage = self.parse_linkage();
 
         (match self.buf.peek() {
-            Some((Token::Semicolon, _)) => Self::parse_end,
+            Some((Token::Semicolon, _)) => Self::parse_nothing,
             Some((Token::Let, _)) => Self::parse_let,
             Some((Token::CuBracketS, _)) => Self::parse_scope,
             Some((Token::CuBracketE, _)) => return false,
@@ -166,7 +169,7 @@ impl<'a> Parser<'a> {
             Some((Token::Return, _)) => Self::parse_return,
             Some((Token::If, _)) => Self::parse_if,
             Some(_) => Self::parse_expr,
-            None => Self::parse_end,
+            None => return false,
         })(
             self,
             ast,
@@ -213,6 +216,7 @@ impl<'a> Parser<'a> {
 
         let expr = consider_error!(exprs::parse(self.buf, self.src, false), self);
         let span = expr.1.clone();
+
         ast.push(Node {
             kind: NodeKind::Expr(expr),
             span: Span {
@@ -223,9 +227,9 @@ impl<'a> Parser<'a> {
         });
     }
 
-    fn parse_end(
+    fn parse_nothing(
         &mut self,
-        ast: &mut UntypedAst,
+        _ast: &mut UntypedAst,
         vis: Option<(Visibility, Span)>,
         link: Option<(Linkage, Span)>,
         _extra: NodeExtra,
@@ -420,6 +424,8 @@ impl<'a> Parser<'a> {
 
         let expr = consider_error!(exprs::parse(self.buf, self.src, true), self);
 
+        self.buf.rewind();
+
         let (body, span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
             a
         } else {
@@ -492,18 +498,19 @@ impl<'a> Parser<'a> {
             ),
             Some(_) => {
                 self.buf.rewind();
-                let typ = unwrap_or_return_set_buf!(
+                unwrap_or_return_set_buf!(
                     types::parse(
                         self.buf,
                         self.src,
                         self.errs,
                     ),
                     self.buf
-                );
-                typ
+                )
             },
             _ => todo!(),
         };
+
+        self.buf.rewind();
 
         let (body, body_span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
             a
