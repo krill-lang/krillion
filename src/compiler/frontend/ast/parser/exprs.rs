@@ -1,5 +1,4 @@
 use super::super::*;
-use crate::compiler::util::*;
 
 pub(super) fn parse(
     buf: &mut Buffer<AToken>,
@@ -21,7 +20,7 @@ pub(super) fn parse(
 
                     for _ in 0..n {
                         let (o, s) =
-                            wrap_option!(out.pop(), (ParseError::RanOutOperands, $span.clone()))?;
+                            out.pop().ok_or((ParseError::RanOutOperands, $span.clone()))?;
                         span.start = span.start.min(s.start);
                         span.end = span.end.max(s.end);
                         op.push((o, s));
@@ -44,8 +43,8 @@ pub(super) fn parse(
     macro_rules! pop_oper_to_out_no_fn {
         ($op: expr, $span: expr, $unary:expr) => {
             if !$unary {
-                let rhs = wrap_option!(out.pop(), (ParseError::RanOutOperands, $span.clone()))?;
-                let lhs = wrap_option!(out.pop(), (ParseError::RanOutOperands, $span.clone()))?;
+                let rhs = out.pop().ok_or((ParseError::RanOutOperands, $span.clone()))?;
+                let lhs = out.pop().ok_or((ParseError::RanOutOperands, $span.clone()))?;
                 let s = $span.start.min(lhs.1.start).min(rhs.1.start);
                 let e = $span.end.max(lhs.1.end).max(rhs.1.end);
                 let span = Span { start: s, end: e };
@@ -58,7 +57,7 @@ pub(super) fn parse(
                     span,
                 ));
             } else {
-                let opr = wrap_option!(out.pop(), (ParseError::RanOutOperands, $span.clone()))?;
+                let opr = out.pop().ok_or((ParseError::RanOutOperands, $span.clone()))?;
                 let s = $span.start.min(opr.1.start);
                 let e = $span.end.max(opr.1.end);
                 let span = Span { start: s, end: e };
@@ -138,11 +137,11 @@ pub(super) fn parse(
                 ops.push((o1.clone(), span.clone(), un));
             },
             Token::ScopeOf => {
-                let p = wrap_option!(out.pop(), (ParseError::RanOutOperands, span.clone()))?;
+                let p = out.pop().ok_or((ParseError::RanOutOperands, span.clone()))?;
                 let start = p.1.start;
                 let mut prev = get_ident!(p);
                 let next =
-                    match wrap_option!(buf.next(), (ParseError::RanOutOperands, span.clone()))? {
+                    match buf.next().ok_or((ParseError::RanOutOperands, span.clone()))? {
                         (Token::Ident, span) => {
                             (src[span.start..span.end].to_string(), span.clone())
                         },
@@ -161,10 +160,7 @@ pub(super) fn parse(
                     pop_oper_to_out_no_fn!(op, span, unary);
                 }
                 if !matches!(buf.peek(), Some((Token::RoBracketE, _))) {
-                    *wrap_option!(
-                        fn_args.last_mut(),
-                        (ParseError::UnexpectedToken, span.clone())
-                    )? += 1;
+                    *fn_args.last_mut().ok_or((ParseError::UnexpectedToken, span.clone()))? += 1;
                 }
             },
             Token::RoBracketS => {

@@ -8,6 +8,10 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> (UntypedAst, Errors) {
 
     parser.parse_more(&mut ast, 0);
 
+    if let Some(next) = buf.peek() {
+       errs.push((ParseError::UnexpectedDelimiter, next.1.clone()));
+    }
+
     errs.push((
         ParseError::YourMom,
         Span {
@@ -386,7 +390,7 @@ impl<'a> Parser<'a> {
         vis: Option<(Visibility, Span)>,
         link: Option<(Linkage, Span)>,
         extra: NodeExtra,
-        depth: usize,
+        _depth: usize,
     ) {
         vis!(disable vis, self);
         link!(disable link, self);
@@ -488,7 +492,7 @@ impl<'a> Parser<'a> {
 
         self.buf.next();
 
-        let return_type = match self.buf.next() {
+        let return_type = match self.buf.peek() {
             Some((Token::CuBracketS, span)) => (
                 Type::BuiltIn(BuiltInType::Unit),
                 Span {
@@ -496,21 +500,16 @@ impl<'a> Parser<'a> {
                     end: span.end
                 }
             ),
-            Some(_) => {
-                self.buf.rewind();
-                unwrap_or_return_set_buf!(
-                    types::parse(
-                        self.buf,
-                        self.src,
-                        self.errs,
-                    ),
-                    self.buf
-                )
-            },
+            Some(_) => unwrap_or_return_set_buf!(
+                types::parse(
+                    self.buf,
+                    self.src,
+                    self.errs,
+                ),
+                self.buf
+            ),
             _ => todo!(),
         };
-
-        self.buf.rewind();
 
         let (body, body_span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
             a
@@ -563,29 +562,3 @@ impl<'a> Parser<'a> {
         Ok((ident, typ, Span { start, end }))
     }
 }
-
-
-
-
-// fn parse_scope_end(start: usize) -> Box<ShouldEndFnInner> {
-//     Box::new(move |buf, errs| match buf.peek() {
-//         Some((Token::CuBracketE, _)) => false,
-//         None => {
-//             let end = buf.buf.last().unwrap().1.clone().end;
-//             errs.push((ParseError::UnendedScope, Span { start, end }));
-//             false
-//         },
-//         Some(_) => true,
-//     })
-// }
-
-// fn parse_file_end(buf: &mut Buffer<AToken>, errs: &mut Errors) -> bool {
-//     match buf.peek() {
-//         None => false,
-//         Some((Token::CuBracketE, span)) => {
-//             errs.push((ParseError::UnexpectedDelimiter, span.clone()));
-//             true
-//         },
-//         Some(_) => true,
-//     }
-// }

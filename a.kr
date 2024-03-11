@@ -1,6 +1,4 @@
-pub static let a = 0
-
-fn main() {
+fn main(argc int, argv &str) int {
 	if a == 1 {
 		a = 0
 	}
