@@ -19,8 +19,9 @@ pub(super) fn parse(
                     let mut span = $span.clone();
 
                     for _ in 0..n {
-                        let (o, s) =
-                            out.pop().ok_or((ParseError::RanOutOperands, $span.clone()))?;
+                        let (o, s) = out
+                            .pop()
+                            .ok_or((ParseError::RanOutOperands, $span.clone()))?;
                         span.start = span.start.min(s.start);
                         span.end = span.end.max(s.end);
                         op.push((o, s));
@@ -43,8 +44,12 @@ pub(super) fn parse(
     macro_rules! pop_oper_to_out_no_fn {
         ($op: expr, $span: expr, $unary:expr) => {
             if !$unary {
-                let rhs = out.pop().ok_or((ParseError::RanOutOperands, $span.clone()))?;
-                let lhs = out.pop().ok_or((ParseError::RanOutOperands, $span.clone()))?;
+                let rhs = out
+                    .pop()
+                    .ok_or((ParseError::RanOutOperands, $span.clone()))?;
+                let lhs = out
+                    .pop()
+                    .ok_or((ParseError::RanOutOperands, $span.clone()))?;
                 let s = $span.start.min(lhs.1.start).min(rhs.1.start);
                 let e = $span.end.max(lhs.1.end).max(rhs.1.end);
                 let span = Span { start: s, end: e };
@@ -57,7 +62,9 @@ pub(super) fn parse(
                     span,
                 ));
             } else {
-                let opr = out.pop().ok_or((ParseError::RanOutOperands, $span.clone()))?;
+                let opr = out
+                    .pop()
+                    .ok_or((ParseError::RanOutOperands, $span.clone()))?;
                 let s = $span.start.min(opr.1.start);
                 let e = $span.end.max(opr.1.end);
                 let span = Span { start: s, end: e };
@@ -137,16 +144,18 @@ pub(super) fn parse(
                 ops.push((o1.clone(), span.clone(), un));
             },
             Token::ScopeOf => {
-                let p = out.pop().ok_or((ParseError::RanOutOperands, span.clone()))?;
+                let p = out
+                    .pop()
+                    .ok_or((ParseError::RanOutOperands, span.clone()))?;
                 let start = p.1.start;
                 let mut prev = get_ident!(p);
-                let next =
-                    match buf.next().ok_or((ParseError::RanOutOperands, span.clone()))? {
-                        (Token::Ident, span) => {
-                            (src[span.start..span.end].to_string(), span.clone())
-                        },
-                        (_, span) => return Err((ParseError::UnexpectedToken, span.clone())),
-                    };
+                let next = match buf
+                    .next()
+                    .ok_or((ParseError::RanOutOperands, span.clone()))?
+                {
+                    (Token::Ident, span) => (src[span.start..span.end].to_string(), span.clone()),
+                    (_, span) => return Err((ParseError::UnexpectedToken, span.clone())),
+                };
                 let end = next.1.end;
                 prev.push(next.0);
                 out.push((Expr::Ident(prev), Span { start, end }));
@@ -160,7 +169,9 @@ pub(super) fn parse(
                     pop_oper_to_out_no_fn!(op, span, unary);
                 }
                 if !matches!(buf.peek(), Some((Token::RoBracketE, _))) {
-                    *fn_args.last_mut().ok_or((ParseError::UnexpectedToken, span.clone()))? += 1;
+                    *fn_args
+                        .last_mut()
+                        .ok_or((ParseError::UnexpectedToken, span.clone()))? += 1;
                 }
             },
             Token::RoBracketS => {

@@ -1,7 +1,7 @@
-use std::panic::*;
-use std::thread;
 use backtrace::*;
 use panic_message::*;
+use std::panic::*;
+use std::thread;
 
 const MAX_BACKTRACE: usize = 25;
 
@@ -33,7 +33,8 @@ pub fn init() {
                             skipping = true;
                             return;
                         } else if name.contains("__rust_end_short_backtrace")
-                            || name.contains("rust_begin_unwind") {
+                            || name.contains("rust_begin_unwind")
+                        {
                             skipping = false;
                             return;
                         }
@@ -55,7 +56,9 @@ pub fn init() {
 
                         if let (Some(f), Some(l)) = (symbol.filename(), symbol.lineno()) {
                             eprint!("          \x1b[1mAt\x1b[0m {}:{l}", f.display());
-                            if let Some(c) = symbol.colno() { eprint!(":{c}"); }
+                            if let Some(c) = symbol.colno() {
+                                eprint!(":{c}");
+                            }
                             eprintln!();
                         }
 
@@ -70,8 +73,10 @@ pub fn init() {
             })
         }
 
-        eprintln!("\x1b[1A\x1b[2K\n\
+        eprintln!(
+            "\x1b[1A\x1b[2K\n\
 \x1b[1;32mInfo: please report this to \x1b[0;4;34mhttps://github.com/krill-lang/krillion/issues\
-\x1b[0;1;32m if this crash is not intentional\x1b[0m\n");
+\x1b[0;1;32m if this crash is not intentional\x1b[0m\n"
+        );
     }));
 }

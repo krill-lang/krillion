@@ -4,12 +4,16 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> (UntypedAst, Errors) {
     let mut ast = UntypedAst::new();
     let mut errs = Errors::new();
 
-    let mut parser = Parser { buf, src, errs: &mut errs };
+    let mut parser = Parser {
+        buf,
+        src,
+        errs: &mut errs,
+    };
 
     parser.parse_more(&mut ast, 0);
 
     if let Some(next) = buf.peek() {
-       errs.push((ParseError::UnexpectedDelimiter, next.1.clone()));
+        errs.push((ParseError::UnexpectedDelimiter, next.1.clone()));
     }
 
     errs.push((
@@ -71,11 +75,7 @@ macro_rules! unwrap_ident {
     ($self: expr) => {
         match $self.buf.next() {
             Some((Token::Ident, s)) => ($self.src[s.start..s.end].to_string(), s.clone()),
-            Some((_, s)) => error!(
-                ParseError::UnexpectedToken,
-                s.clone(),
-                $self
-            ),
+            Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), $self),
             None => error!(
                 ParseError::RanOutTokens,
                 $self.buf.prev().unwrap().1.clone(),
@@ -89,11 +89,7 @@ macro_rules! assert_token {
     ($intended: pat, $self: expr) => {
         match $self.buf.next() {
             Some(($intended, s)) => s.clone(),
-            Some((_, s)) => error!(
-                ParseError::UnexpectedToken,
-                s.clone(),
-                $self
-            ),
+            Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), $self),
             None => error!(
                 ParseError::RanOutTokens,
                 $self.buf.prev().unwrap().1.clone(),
@@ -111,10 +107,9 @@ macro_rules! vis {
     }};
     (root $vis: expr, $self: expr, $depth: expr) => {{
         if let (Some(vis), true) = (&$vis, $depth != 0) {
-            $self.errs.push((
-                ParseError::UnexpectedVisibility,
-                vis.1.clone(),
-            ));
+            $self
+                .errs
+                .push((ParseError::UnexpectedVisibility, vis.1.clone()));
             $self.errs.push((ParseError::OnlyWorkInRoot, vis.1.clone()));
         }
     }};
@@ -128,35 +123,25 @@ macro_rules! link {
     }};
     (root $link: expr, $self: expr, $depth: expr) => {{
         if let (Some(link), true) = (&$link, $depth != 0) {
-            $self.errs.push((
-                ParseError::UnexpectedLinkage,
-                link.1.clone(),
-            ));
-            $self.errs.push((
-                ParseError::OnlyWorkInRoot,
-                link.1.clone(),
-            ));
+            $self
+                .errs
+                .push((ParseError::UnexpectedLinkage, link.1.clone()));
+            $self
+                .errs
+                .push((ParseError::OnlyWorkInRoot, link.1.clone()));
         }
     }};
 }
 
 impl<'a> Parser<'a> {
-    fn parse_more(
-        &mut self,
-        ast: &mut UntypedAst,
-        depth: usize
-    ) {
+    fn parse_more(&mut self, ast: &mut UntypedAst, depth: usize) {
         // while !matches!(self.buf.peek(), Some((Token::CuBracketE, _)) | None) {
         //     self.parse_inner(ast, depth)
         // }
         while self.parse_inner(ast, depth) {}
     }
 
-    fn parse_inner(
-        &mut self,
-        ast: &mut UntypedAst,
-        depth: usize
-    ) -> bool {
+    fn parse_inner(&mut self, ast: &mut UntypedAst, depth: usize) -> bool {
         #[cfg(feature = "unstable")]
         println!("{}", self.buf.idx);
 
@@ -174,14 +159,7 @@ impl<'a> Parser<'a> {
             Some((Token::If, _)) => Self::parse_if,
             Some(_) => Self::parse_expr,
             None => return false,
-        })(
-            self,
-            ast,
-            visibility,
-            linkage,
-            NodeExtra::default(),
-            depth,
-        );
+        })(self, ast, visibility, linkage, NodeExtra::default(), depth);
 
         true
     }
@@ -264,11 +242,7 @@ impl<'a> Parser<'a> {
             Some((Token::Operator(Operator::Assign), _)) => None,
             Some((Token::Semicolon, _)) => None,
             Some(_) => Some(unwrap_or_return_set_buf!(
-                types::parse(
-                    self.buf,
-                    self.src,
-                    self.errs,
-                ),
+                types::parse(self.buf, self.src, self.errs,),
                 self.buf
             )),
             None => error!(ParseError::RanOutTokens, span, self),
@@ -314,14 +288,16 @@ impl<'a> Parser<'a> {
         let scope = if let Some((a, _)) = self.parse_scope_impl(depth, extra) {
             a
         } else {
-            return
+            return;
         };
 
         ast.push(scope);
     }
 
     fn parse_scope_impl(
-        &mut self, depth: usize, extra: NodeExtra
+        &mut self,
+        depth: usize,
+        extra: NodeExtra,
     ) -> Option<(Node<UntypedNode>, Span)> {
         let start = match self.buf.next() {
             Some((Token::CuBracketS, s)) => s.start,
@@ -336,14 +312,17 @@ impl<'a> Parser<'a> {
             _ => return None,
         };
 
-        Some((Node {
-            kind: NodeKind::Scope {
-                body: new_ast,
+        Some((
+            Node {
+                kind: NodeKind::Scope {
+                    body: new_ast,
+                    span: Span { start, end },
+                },
                 span: Span { start, end },
+                extra,
             },
-            span: Span { start, end },
-            extra,
-        }, Span { start, end }))
+            Span { start, end },
+        ))
     }
 
     fn parse_while(
@@ -366,7 +345,7 @@ impl<'a> Parser<'a> {
         let (body, span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
             a
         } else {
-            return
+            return;
         };
         let body = Box::new(body);
 
@@ -379,7 +358,10 @@ impl<'a> Parser<'a> {
                 //     end,
                 // },
             },
-            span: Span { start, end: span.end },
+            span: Span {
+                start,
+                end: span.end,
+            },
             extra,
         });
     }
@@ -399,7 +381,10 @@ impl<'a> Parser<'a> {
 
         let value = match self.buf.peek() {
             Some((Token::Semicolon, _)) | None => None,
-            _ => Some(consider_error!(exprs::parse(self.buf, self.src, true), self)),
+            _ => Some(consider_error!(
+                exprs::parse(self.buf, self.src, true),
+                self
+            )),
         };
 
         let end = value.as_ref().map_or(span.end, |a| a.1.end);
@@ -433,7 +418,7 @@ impl<'a> Parser<'a> {
         let (body, span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
             a
         } else {
-            return
+            return;
         };
         let body = Box::new(body);
 
@@ -444,7 +429,11 @@ impl<'a> Parser<'a> {
                 self.buf.rewind();
                 let mut body = Vec::with_capacity(1);
                 self.parse_inner(&mut body, depth + 1);
-                let end = self.buf.next().map_or_else(Span::default, |a| a.1.clone()).end;
+                let end = self
+                    .buf
+                    .next()
+                    .map_or_else(Span::default, |a| a.1.clone())
+                    .end;
                 Some((Box::new(body[0].clone()), Span { start, end }))
             },
             _ => None,
@@ -452,14 +441,13 @@ impl<'a> Parser<'a> {
 
         ast.push(Node {
             kind: NodeKind::If {
-                main: (
-                    expr,
-                    body,
-                    span.clone(),
-                ),
+                main: (expr, body, span.clone()),
                 els,
             },
-            span: Span { start, end: span.end },
+            span: Span {
+                start,
+                end: span.end,
+            },
             extra,
         });
     }
@@ -483,11 +471,14 @@ impl<'a> Parser<'a> {
         let mut params = Vec::new();
         while !matches!(self.buf.peek(), Some((Token::RoBracketE, _))) {
             let param = self.parse_fn_param();
-            param.map_or_else(|e| {
-                error!(e.0, e.1, self);
-            }, |param| {
-                params.push(param);
-            });
+            param.map_or_else(
+                |e| {
+                    error!(e.0, e.1, self);
+                },
+                |param| {
+                    params.push(param);
+                },
+            );
         }
 
         self.buf.next();
@@ -497,24 +488,20 @@ impl<'a> Parser<'a> {
                 Type::BuiltIn(BuiltInType::Unit),
                 Span {
                     start: span.start,
-                    end: span.end
-                }
+                    end: span.end,
+                },
             ),
-            Some(_) => unwrap_or_return_set_buf!(
-                types::parse(
-                    self.buf,
-                    self.src,
-                    self.errs,
-                ),
-                self.buf
-            ),
+            Some(_) => {
+                unwrap_or_return_set_buf!(types::parse(self.buf, self.src, self.errs,), self.buf)
+            },
             _ => todo!(),
         };
 
-        let (body, body_span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
+        let (body, body_span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default())
+        {
             a
         } else {
-            return
+            return;
         };
         let body = Box::new(body);
 
@@ -526,7 +513,7 @@ impl<'a> Parser<'a> {
                 params,
                 return_type,
                 body,
-                span: body_span.clone()
+                span: body_span.clone(),
             },
             span: Span {
                 start: span.start,
@@ -543,11 +530,7 @@ impl<'a> Parser<'a> {
             None => return Err((ParseError::RanOutTokens, self.buf.prev().unwrap().1.clone())),
         };
 
-        let typ = types::parse(
-            self.buf,
-            self.src,
-            self.errs,
-        ).unwrap();
+        let typ = types::parse(self.buf, self.src, self.errs).unwrap();
 
         match self.buf.next() {
             Some((Token::Comma, _)) => (),

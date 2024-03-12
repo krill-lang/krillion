@@ -6,14 +6,20 @@ fn main() {
         .output()
         .ok()
         .and_then(|out| String::from_utf8(out.stdout).ok())
-        .map(|mut c| { c.truncate(7); c })
+        .map(|mut c| {
+            c.truncate(7);
+            c
+        })
         .unwrap_or(r"¯\_(ツ)_/¯".to_string());
 
-    if matches!(Command::new("git")
-        .args(["diff-index", "--quiet", "HEAD"])
-        .status()
-        .ok()
-        .map(|a| !a.success()), Some(true)) {
+    if matches!(
+        Command::new("git")
+            .args(["diff-index", "--quiet", "HEAD"])
+            .status()
+            .ok()
+            .map(|a| !a.success()),
+        Some(true)
+    ) {
         commit += " (modified)"
     }
 

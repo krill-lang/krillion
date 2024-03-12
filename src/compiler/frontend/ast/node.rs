@@ -58,8 +58,7 @@ pub enum NodeKind<Expr: std::fmt::Debug + Clone> {
     },
     While {
         cond: Expr,
-        body: Box<Node<Self>>, // gonna be a scope
-        // span: Span,
+        body: Box<Node<Self>>,
     },
 }
 

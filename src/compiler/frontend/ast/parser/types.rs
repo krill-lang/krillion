@@ -1,10 +1,6 @@
 use super::*;
 
-pub fn parse(
-    buf: &mut Buffer<AToken>,
-    src: &str,
-    errs: &mut Errors,
-) -> Option<AType> {
+pub fn parse(buf: &mut Buffer<AToken>, src: &str, errs: &mut Errors) -> Option<AType> {
     match buf.next() {
         Some((Token::Ident, span)) => {
             let typ = Type::from_str(src.slice(span.clone()).unwrap());
@@ -15,10 +11,7 @@ pub fn parse(
             let inner = parse(buf, src, errs);
             inner.map(|inner| {
                 let end = inner.1.end;
-                (
-                    Type::Pointer(Box::new(inner)),
-                    Span { start, end },
-                )
+                (Type::Pointer(Box::new(inner)), Span { start, end })
             })
         },
         Some((Token::Operator(Operator::LAnd), span)) => {
@@ -30,9 +23,15 @@ pub fn parse(
                 (
                     Type::Pointer(Box::new((
                         Type::Pointer(Box::new(inner)),
-                        Span { start: start_2, end }
+                        Span {
+                            start: start_2,
+                            end,
+                        },
                     ))),
-                    Span { start: start_1, end },
+                    Span {
+                        start: start_1,
+                        end,
+                    },
                 )
             })
         },
