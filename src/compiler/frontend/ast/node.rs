@@ -87,7 +87,7 @@ pub type Identifier = Vec<String>;
 pub enum Type {
     Pointer(Box<AType>),
     Slice(Box<AType>),
-    Array(Box<AType>, u128),
+    Array(Box<AType>, Annotated<u128>),
 
     BuiltIn(BuiltInType),
     Unknown(String),
@@ -96,13 +96,6 @@ pub enum Type {
     Any,
     Integer,
 }
-
-/* #[derive(Clone)]
-pub enum TypeOperators {
-    Pointer,
-    Slice,
-    Array(u128),
-} */
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuiltInType {
@@ -181,7 +174,7 @@ impl std::fmt::Display for Type {
         match self {
             Pointer(t) => write!(f, "&{}", t.0),
             Slice(t) => write!(f, "[]{}", t.0),
-            Array(t, s) => write!(f, "[{s}]{}", t.0),
+            Array(t, s) => write!(f, "[{}]{}", s.0, t.0),
             BuiltIn(b) => write!(f, "{b}"),
             Unknown(t) => write!(f, "{t}"),
             OneOf(t) => write!(

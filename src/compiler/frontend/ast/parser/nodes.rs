@@ -27,92 +27,6 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str) -> (UntypedAst, Errors) {
     (ast, errs)
 }
 
-macro_rules! consider_error {
-    ($expr: expr, $self: expr) => {
-        match $expr {
-            Err((e, s)) => {
-                $self.buf.rewind();
-                error!(e, s, $self);
-            },
-            Ok(a) => a,
-        }
-    };
-}
-
-macro_rules! unwrap_or_return_set_buf {
-    ($expr: expr, $buf: expr) => {
-        match $expr {
-            Some(a) => a,
-            _ => {
-                while let Some((t, _)) = $buf.next() {
-                    if matches!(t, Token::Semicolon | Token::CuBracketS) {
-                        break;
-                    }
-                }
-
-                $buf.rewind();
-                return;
-            },
-        }
-    };
-}
-
-macro_rules! error {
-    ($reason: expr, $span: expr, $self: expr) => {{
-        $self.errs.push(($reason, $span));
-        while let Some((t, _)) = $self.buf.next() {
-            if matches!(t, Token::Semicolon | Token::CuBracketS) {
-                break;
-            }
-        }
-
-        $self.buf.rewind();
-        return;
-    }};
-}
-
-macro_rules! unwrap_ident {
-    ($self: expr) => {
-        match $self.buf.next() {
-            Some((Token::Ident, s)) => ($self.src[s.start..s.end].to_string(), s.clone()),
-            Some((t, s)) => error!(
-                ParseError::UnexpectedToken {
-                    expected: Some("identifier"),
-                    found: t.clone(),
-                },
-                s.clone(),
-                $self
-            ),
-            None => error!(
-                ParseError::RanOutTokens,
-                $self.buf.prev().unwrap().1.clone(),
-                $self
-            ),
-        }
-    };
-}
-
-macro_rules! assert_token {
-    ($intended: pat, $expected: expr, $self: expr) => {
-        match $self.buf.next() {
-            Some(($intended, s)) => s.clone(),
-            Some((t, s)) => error!(
-                ParseError::UnexpectedToken {
-                    expected: Some($expected),
-                    found: t.clone(),
-                },
-                s.clone(),
-                $self
-            ),
-            None => error!(
-                ParseError::RanOutTokens,
-                $self.buf.prev().unwrap().1.clone(),
-                $self
-            ),
-        }
-    };
-}
-
 macro_rules! vis {
     (disable $vis: expr, $self: expr) => {{
         if let Some(vis) = $vis {
@@ -253,7 +167,7 @@ impl<'a> Parser<'a> {
             Some((Token::Operator(Operator::Assign), _)) => None,
             Some((Token::Semicolon, _)) => None,
             Some(_) => Some(unwrap_or_return_set_buf!(
-                types::parse(self.buf, self.src, self.errs,),
+                self.parse_type(),
                 self.buf
             )),
             None => error!(ParseError::RanOutTokens, span, self),
@@ -545,7 +459,7 @@ impl<'a> Parser<'a> {
                 },
             ),
             Some(_) => {
-                unwrap_or_return_set_buf!(types::parse(self.buf, self.src, self.errs,), self.buf)
+                unwrap_or_return_set_buf!(self.parse_type(), self.buf)
             },
             _ => todo!(),
         };
@@ -596,7 +510,7 @@ impl<'a> Parser<'a> {
             },
         };
 
-        let typ = types::parse(self.buf, self.src, self.errs)?;
+        let typ = self.parse_type()?;
 
         match self.buf.next() {
             Some((Token::Comma, _)) => (),

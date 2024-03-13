@@ -1,12 +1,2 @@
-fn do_stuff(a t) int {
-	= 1
-	// if a == 1 {
-	// 	a = 0
-	// } else if a == 2 {
-	// 	a = 69
-	// } else {
-	// 	a = 420
-	// }
-
-	// return 1 + 2 + a
+fn do_stuff(a [int], b [int * 3]) int {
 }
