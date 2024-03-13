@@ -1,6 +1,6 @@
 use super::*;
-use std::fmt;
 pub use logos::*;
+use std::fmt;
 
 #[derive(Debug, Clone, Logos)]
 #[logos(skip r"\s")]
@@ -94,7 +94,9 @@ impl fmt::Display for Token {
             Self::Operator(_) => write!(f, "operator"),
             Self::ScopeOf => write!(f, "scope separator"),
             Self::Of => write!(f, "dot"),
-            Self::Comma | Self::NewLine | Self::None => write!(f, "{}", format!("{self:?}").to_lowercase()),
+            Self::Comma | Self::NewLine | Self::None => {
+                write!(f, "{}", format!("{self:?}").to_lowercase())
+            },
             _ => write!(f, "`{}`", format!("{self:?}").to_lowercase()),
         }
     }

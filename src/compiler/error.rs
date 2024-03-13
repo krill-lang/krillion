@@ -247,10 +247,12 @@ impl CompilerError for ParseError {
         match self {
             Self::UnexpectedTokenLegacy => "unexpected token (old error)".to_string(),
             Self::UnexpectedToken {
-                expected: Some(expected), found
+                expected: Some(expected),
+                found,
             } => format!("expected {expected}, found {found}"),
             Self::UnexpectedToken {
-                expected: None, found
+                expected: None,
+                found,
             } => format!("unexpected {found}"),
             Self::UnexpectedVisibility => "unexpected visibility qualifier".to_string(),
             Self::UnexpectedLinkage => "unexpected linkage specifier".to_string(),

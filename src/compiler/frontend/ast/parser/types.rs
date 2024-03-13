@@ -36,10 +36,13 @@ pub fn parse(buf: &mut Buffer<AToken>, src: &str, errs: &mut Errors) -> Option<A
             })
         },
         Some((t, span)) => {
-            errs.push((ParseError::UnexpectedToken {
-                expected: None,
-                found: t.clone(),
-            }, span.clone()));
+            errs.push((
+                ParseError::UnexpectedToken {
+                    expected: None,
+                    found: t.clone(),
+                },
+                span.clone(),
+            ));
             None
         },
         None => {

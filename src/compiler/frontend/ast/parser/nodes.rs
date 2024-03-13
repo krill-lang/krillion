@@ -75,10 +75,14 @@ macro_rules! unwrap_ident {
     ($self: expr) => {
         match $self.buf.next() {
             Some((Token::Ident, s)) => ($self.src[s.start..s.end].to_string(), s.clone()),
-            Some((t, s)) => error!(ParseError::UnexpectedToken {
-                expected: Some("identifier"),
-                found: t.clone(),
-            }, s.clone(), $self),
+            Some((t, s)) => error!(
+                ParseError::UnexpectedToken {
+                    expected: Some("identifier"),
+                    found: t.clone(),
+                },
+                s.clone(),
+                $self
+            ),
             None => error!(
                 ParseError::RanOutTokens,
                 $self.buf.prev().unwrap().1.clone(),
@@ -92,10 +96,14 @@ macro_rules! assert_token {
     ($intended: pat, $expected: expr, $self: expr) => {
         match $self.buf.next() {
             Some(($intended, s)) => s.clone(),
-            Some((t, s)) => error!(ParseError::UnexpectedToken {
-                expected: Some($expected),
-                found: t.clone(),
-            }, s.clone(), $self),
+            Some((t, s)) => error!(
+                ParseError::UnexpectedToken {
+                    expected: Some($expected),
+                    found: t.clone(),
+                },
+                s.clone(),
+                $self
+            ),
             None => error!(
                 ParseError::RanOutTokens,
                 $self.buf.prev().unwrap().1.clone(),
@@ -257,10 +265,14 @@ impl<'a> Parser<'a> {
                 (Some(expr), self.buf.current().unwrap().1.start)
             },
             Some((Token::Semicolon, _)) => (None, self.buf.current().unwrap().1.start),
-            Some((t, s)) => error!(ParseError::UnexpectedToken {
-                expected: Some("assign operator, semicolon or newline"),
-                found: t.clone(),
-            }, s.clone(), self),
+            Some((t, s)) => error!(
+                ParseError::UnexpectedToken {
+                    expected: Some("assign operator, semicolon or newline"),
+                    found: t.clone(),
+                },
+                s.clone(),
+                self
+            ),
             None => error!(ParseError::RanOutTokens, span, self),
         };
 
@@ -308,13 +320,20 @@ impl<'a> Parser<'a> {
         let start = match self.buf.next() {
             Some((Token::CuBracketS, s)) => s.start,
             _ => {
-                let c = self.buf.peek().unwrap_or_else(|| self.last_token().unwrap()).clone();
+                let c = self
+                    .buf
+                    .peek()
+                    .unwrap_or_else(|| self.last_token().unwrap())
+                    .clone();
                 let s = c.1.start;
 
-                self.errs.push((ParseError::UnexpectedToken {
-                    expected: Some("start of scope"),
-                    found: c.0,
-                }, c.1));
+                self.errs.push((
+                    ParseError::UnexpectedToken {
+                        expected: Some("start of scope"),
+                        found: c.0,
+                    },
+                    c.1,
+                ));
                 self.buf.rewind();
 
                 s
@@ -331,8 +350,8 @@ impl<'a> Parser<'a> {
                     ParseError::UnendedScope,
                     Span {
                         start,
-                        end: self.last_token().unwrap().1.end
-                    }
+                        end: self.last_token().unwrap().1.end,
+                    },
                 ));
                 return None;
             },
@@ -376,10 +395,7 @@ impl<'a> Parser<'a> {
         let body = Box::new(body);
 
         ast.push(Node {
-            kind: NodeKind::While {
-                cond: expr,
-                body,
-            },
+            kind: NodeKind::While { cond: expr, body },
             span: Span {
                 start,
                 end: span.end,
@@ -454,26 +470,27 @@ impl<'a> Parser<'a> {
                         if tmp.len() > 0 {
                             let node = tmp.swap_remove(0);
                             let end = node.span.end;
-                            Some((Box::new(node), Span {
-                                start,
-                                end,
-                            }))
+                            Some((Box::new(node), Span { start, end }))
                         } else {
                             None
                         }
                     },
                     _ => {
-                        let (body, span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
-                            a
-                        } else {
-                            return;
-                        };
+                        let (body, span) =
+                            if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
+                                a
+                            } else {
+                                return;
+                            };
                         let body = Box::new(body);
 
-                        Some((body, Span {
-                            start,
-                            end: span.end,
-                        }))
+                        Some((
+                            body,
+                            Span {
+                                start,
+                                end: span.end,
+                            },
+                        ))
                     },
                 }
             },
@@ -563,14 +580,18 @@ impl<'a> Parser<'a> {
         let ident = match self.buf.next() {
             Some((Token::Ident, s)) => (self.src[s.start..s.end].to_string(), s.clone()),
             Some((t, s)) => {
-                self.errs.push((ParseError::UnexpectedToken {
-                    expected: Some("identifier"),
-                    found: t.clone(),
-                }, s.clone()));
+                self.errs.push((
+                    ParseError::UnexpectedToken {
+                        expected: Some("identifier"),
+                        found: t.clone(),
+                    },
+                    s.clone(),
+                ));
                 return None;
             },
             None => {
-                self.errs.push((ParseError::RanOutTokens, self.buf.prev().unwrap().1.clone()));
+                self.errs
+                    .push((ParseError::RanOutTokens, self.buf.prev().unwrap().1.clone()));
                 return None;
             },
         };
@@ -581,14 +602,18 @@ impl<'a> Parser<'a> {
             Some((Token::Comma, _)) => (),
             Some((Token::RoBracketE, _)) => self.buf.rewind(),
             Some((t, s)) => {
-                self.errs.push((ParseError::UnexpectedToken {
-                    expected: Some("comma or end of argument list"),
-                    found: t.clone(),
-                }, s.clone()));
+                self.errs.push((
+                    ParseError::UnexpectedToken {
+                        expected: Some("comma or end of argument list"),
+                        found: t.clone(),
+                    },
+                    s.clone(),
+                ));
                 return None;
             },
             None => {
-                self.errs.push((ParseError::RanOutTokens, self.buf.prev().unwrap().1.clone()));
+                self.errs
+                    .push((ParseError::RanOutTokens, self.buf.prev().unwrap().1.clone()));
                 return None;
             },
         }
