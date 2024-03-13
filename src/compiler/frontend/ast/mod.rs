@@ -1,8 +1,8 @@
 use super::*;
 
+pub mod node;
 #[allow(clippy::cognitive_complexity)]
 pub mod parser;
-pub mod node;
 pub use node::*;
 pub use parser::nodes::parse;
 // pub mod typecheck;

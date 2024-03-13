@@ -166,10 +166,7 @@ impl<'a> Parser<'a> {
         let typ = match self.buf.peek() {
             Some((Token::Operator(Operator::Assign), _)) => None,
             Some((Token::Semicolon, _)) => None,
-            Some(_) => Some(unwrap_or_return_set_buf!(
-                self.parse_type(),
-                self.buf
-            )),
+            Some(_) => Some(unwrap_or_return_set_buf!(self.parse_type(), self.buf)),
             None => error!(ParseError::RanOutTokens, span, self),
         };
 

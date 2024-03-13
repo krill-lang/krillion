@@ -114,4 +114,4 @@ macro_rules! assert_token {
     };
 }
 
-pub use {consider_error, unwrap_or_return_set_buf, error, unwrap_ident, assert_token};
+pub use {assert_token, consider_error, error, unwrap_ident, unwrap_or_return_set_buf};

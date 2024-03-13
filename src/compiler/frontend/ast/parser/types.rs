@@ -39,12 +39,13 @@ impl<'a> Parser<'a> {
 
                 let inner = self.parse_type()?;
                 match self.buf.next() {
-                    Some((Token::SqBracketE, end_span)) => {
-                        Some((Type::Slice(Box::new(inner)), Span {
+                    Some((Token::SqBracketE, end_span)) => Some((
+                        Type::Slice(Box::new(inner)),
+                        Span {
                             start,
                             end: end_span.end,
-                        }))
-                    },
+                        },
+                    )),
                     Some((Token::Operator(Operator::Mlt), _)) => {
                         let size = match self.buf.next() {
                             Some((Token::Integer(size), span)) => (*size, span.clone()),
@@ -62,7 +63,7 @@ impl<'a> Parser<'a> {
                             None => {
                                 self.errs.push((
                                     ParseError::RanOutTokens,
-                                    self.last_token().unwrap().1.clone()
+                                    self.last_token().unwrap().1.clone(),
                                 ));
 
                                 (0, self.last_token().unwrap().1.clone())
@@ -85,7 +86,7 @@ impl<'a> Parser<'a> {
                             None => {
                                 self.errs.push((
                                     ParseError::RanOutTokens,
-                                    self.last_token().unwrap().1.clone()
+                                    self.last_token().unwrap().1.clone(),
                                 ));
 
                                 return None;
@@ -107,10 +108,10 @@ impl<'a> Parser<'a> {
                     None => {
                         self.errs.push((
                             ParseError::RanOutTokens,
-                            self.last_token().unwrap().1.clone()
+                            self.last_token().unwrap().1.clone(),
                         ));
                         None
-                    }
+                    },
                 }
             },
             Some((t, span)) => {
