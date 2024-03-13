@@ -1,3 +1,170 @@
+use super::*;
+
+struct OperatorTableEntry {
+    operator: Operator,
+    is_unary: bool,
+    is_left: bool,
+    percedence: usize,
+}
+
+const OPERATOR_TABLE: &[OperatorTableEntry] = &[
+    OperatorTableEntry {
+        operator: Operator::LT,
+        is_unary: false,
+        is_left: true,
+        percedence: 9,
+    },
+    OperatorTableEntry {
+        operator: Operator::LE,
+        is_unary: false,
+        is_left: true,
+        percedence: 9,
+    },
+    OperatorTableEntry {
+        operator: Operator::GT,
+        is_unary: false,
+        is_left: true,
+        percedence: 9,
+    },
+    OperatorTableEntry {
+        operator: Operator::GE,
+        is_unary: false,
+        is_left: true,
+        percedence: 9,
+    },
+    OperatorTableEntry {
+        operator: Operator::LSh,
+        is_unary: false,
+        is_left: true,
+        percedence: 10,
+    },
+    OperatorTableEntry {
+        operator: Operator::RSh,
+        is_unary: false,
+        is_left: true,
+        percedence: 10,
+    },
+    OperatorTableEntry {
+        operator: Operator::Add,
+        is_unary: false,
+        is_left: true,
+        percedence: 11,
+    },
+    OperatorTableEntry {
+        operator: Operator::Sub,
+        is_unary: false,
+        is_left: true,
+        percedence: 11,
+    },
+    OperatorTableEntry {
+        operator: Operator::Mlt,
+        is_unary: false,
+        is_left: true,
+        percedence: 12,
+    },
+    OperatorTableEntry {
+        operator: Operator::Div,
+        is_unary: false,
+        is_left: true,
+        percedence: 12,
+    },
+    OperatorTableEntry {
+        operator: Operator::Mod,
+        is_unary: false,
+        is_left: true,
+        percedence: 12,
+    },
+];
+
+impl<'a> super::Parser<'a> {
+    // https://www.engr.mun.ca/~theo/Misc/exp_parsing.htm#climbing
+    pub(super) fn parse_expr(&mut self) -> Option<AExpr> {
+        self.parse_expr_climb(0)
+    }
+
+    fn parse_expr_climb(&mut self, percedence: usize) -> Option<AExpr> {
+        let left = self.parse_single();
+
+        // TODO: {B Exp(q)}
+    }
+
+    fn parse_single(&mut self) -> Option<AExpr> {
+        let token = self.buf.next();
+        match token {
+            Some((Token::Integer(v), span)) => Some((Expr::Integer(*v as i128), span.clone())),
+            Some((Token::RoBracketS, Span { start, .. })) => {
+                let start = *start;
+                let inner = self.parse_expr()?;
+                let end = match self.buf.next() {
+                    Some((Token::RoBracketE, span)) => span.end,
+                    Some((t, span)) => {
+                        self.errs.push((
+                            ParseError::UnexpectedToken {
+                                expected: Some("end of bracket"),
+                                found: t.clone()
+                            },
+                            span.clone()
+                        ));
+                        span.end
+                    }, // TODO:
+                    None => {
+                        self.errs.push((
+                            ParseError::UnendedBracket,
+                            self.last_token().unwrap().1
+                        ));
+
+                        0
+                    },
+                };
+
+                Some((inner.0, Span { start, end }))
+            },
+            Some((Token::Operator(op), span)) => {
+                if let Some(op_e) = OPERATOR_TABLE.iter().find(|v| v.is_unary && v.operator == *op) {
+                    let start = span.start;
+                    let op = op.clone();
+                    let inner = self.parse_expr_climb(0)?; // TODO:
+                    let end = inner.1.end;
+                    Some((Expr::UnOp { opr: Box::new(inner), op: Box::new(op) }, Span {
+                        start,
+                        end,
+                    }))
+                } else {
+                    self.errs.push((
+                        ParseError::UnexpectedToken {
+                            expected: Some("unary operator"),
+                            found: token.unwrap().0.clone()
+                        },
+                        span.clone()
+                    ));
+
+                    None
+                }
+            },
+            Some((t, span)) => {
+                self.errs.push((
+                    ParseError::UnexpectedToken {
+                        expected: Some("value, unary operator or brackets"),
+                        found: t.clone()
+                    },
+                    span.clone()
+                ));
+
+                None
+            },
+            None => {
+                self.errs.push((
+                    ParseError::RanOutTokens,
+                    self.last_token().unwrap().1
+                ));
+
+                None
+            }, // TODO:
+        }
+    }
+}
+
+/*
 use super::super::*;
 
 pub(super) fn parse(
@@ -270,4 +437,4 @@ pub(super) fn parse(
     } else {
         Err((ParseError::ExprParseError, expr_span))
     }
-}
+} */

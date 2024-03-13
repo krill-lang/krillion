@@ -82,7 +82,7 @@ impl<'a> Parser<'a> {
             Some((Token::Fn, _)) => Self::parse_fn,
             Some((Token::Return, _)) => Self::parse_return,
             Some((Token::If, _)) => Self::parse_if,
-            Some(_) => Self::parse_expr,
+            Some(_) => Self::parse_standalone_expr,
             None => return false,
         })(self, ast, visibility, linkage, NodeExtra::default(), depth);
 
@@ -110,7 +110,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_expr(
+    fn parse_standalone_expr(
         &mut self,
         ast: &mut UntypedAst,
         vis: Option<(Visibility, Span)>,
@@ -121,7 +121,11 @@ impl<'a> Parser<'a> {
         vis!(disable vis, self);
         link!(disable link, self);
 
-        let expr = consider_error!(exprs::parse(self.buf, self.src, false), self);
+        let expr = if let Some(expr) = self.parse_expr() {
+            expr
+        } else {
+            return;
+        };
         let span = expr.1.clone();
 
         ast.push(Node {
@@ -172,7 +176,11 @@ impl<'a> Parser<'a> {
 
         let (expr, end) = match self.buf.next() {
             Some((Token::Operator(Operator::Assign), _)) => {
-                let expr = consider_error!(exprs::parse(self.buf, self.src, false), self);
+                let expr = if let Some(e) = self.parse_expr() {
+                    e
+                } else {
+                    return;
+                };
                 (Some(expr), self.buf.current().unwrap().1.start)
             },
             Some((Token::Semicolon, _)) => (None, self.buf.current().unwrap().1.start),
@@ -294,7 +302,11 @@ impl<'a> Parser<'a> {
 
         let start = self.buf.next().unwrap().1.clone().start;
 
-        let expr = consider_error!(exprs::parse(self.buf, self.src, true), self);
+        let expr = if let Some(expr) = self.parse_expr() {
+            expr
+        } else {
+            return;
+        };
 
         self.buf.rewind();
 
@@ -330,10 +342,7 @@ impl<'a> Parser<'a> {
 
         let value = match self.buf.peek() {
             Some((Token::Semicolon, _)) | None => None,
-            _ => Some(consider_error!(
-                exprs::parse(self.buf, self.src, true),
-                self
-            )),
+            _ => self.parse_expr(),
         };
 
         let end = value.as_ref().map_or(span.end, |a| a.1.end);
@@ -360,7 +369,11 @@ impl<'a> Parser<'a> {
 
         let start = self.buf.next().unwrap().1.clone().start;
 
-        let expr = consider_error!(exprs::parse(self.buf, self.src, true), self);
+        let expr = if let Some(expr) = self.parse_expr() {
+            expr
+        } else {
+            return;
+        };
 
         self.buf.rewind();
 
