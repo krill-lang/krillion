@@ -75,7 +75,10 @@ macro_rules! unwrap_ident {
     ($self: expr) => {
         match $self.buf.next() {
             Some((Token::Ident, s)) => ($self.src[s.start..s.end].to_string(), s.clone()),
-            Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), $self),
+            Some((t, s)) => error!(ParseError::UnexpectedToken {
+                expected: Some("identifier"),
+                found: t.clone(),
+            }, s.clone(), $self),
             None => error!(
                 ParseError::RanOutTokens,
                 $self.buf.prev().unwrap().1.clone(),
@@ -86,10 +89,13 @@ macro_rules! unwrap_ident {
 }
 
 macro_rules! assert_token {
-    ($intended: pat, $self: expr) => {
+    ($intended: pat, $expected: expr, $self: expr) => {
         match $self.buf.next() {
             Some(($intended, s)) => s.clone(),
-            Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), $self),
+            Some((t, s)) => error!(ParseError::UnexpectedToken {
+                expected: Some($expected),
+                found: t.clone(),
+            }, s.clone(), $self),
             None => error!(
                 ParseError::RanOutTokens,
                 $self.buf.prev().unwrap().1.clone(),
@@ -135,9 +141,6 @@ macro_rules! link {
 
 impl<'a> Parser<'a> {
     fn parse_more(&mut self, ast: &mut UntypedAst, depth: usize) {
-        // while !matches!(self.buf.peek(), Some((Token::CuBracketE, _)) | None) {
-        //     self.parse_inner(ast, depth)
-        // }
         while self.parse_inner(ast, depth) {}
     }
 
@@ -254,7 +257,10 @@ impl<'a> Parser<'a> {
                 (Some(expr), self.buf.current().unwrap().1.start)
             },
             Some((Token::Semicolon, _)) => (None, self.buf.current().unwrap().1.start),
-            Some((_, s)) => error!(ParseError::UnexpectedToken, s.clone(), self),
+            Some((t, s)) => error!(ParseError::UnexpectedToken {
+                expected: Some("assign operator, semicolon or newline"),
+                found: t.clone(),
+            }, s.clone(), self),
             None => error!(ParseError::RanOutTokens, span, self),
         };
 
@@ -301,7 +307,18 @@ impl<'a> Parser<'a> {
     ) -> Option<(Node<UntypedNode>, Span)> {
         let start = match self.buf.next() {
             Some((Token::CuBracketS, s)) => s.start,
-            _ => return None,
+            _ => {
+                let c = self.buf.peek().unwrap_or_else(|| self.last_token().unwrap()).clone();
+                let s = c.1.start;
+
+                self.errs.push((ParseError::UnexpectedToken {
+                    expected: Some("start of scope"),
+                    found: c.0,
+                }, c.1));
+                self.buf.rewind();
+
+                s
+            },
         };
 
         let mut new_ast = UntypedAst::new();
@@ -309,7 +326,16 @@ impl<'a> Parser<'a> {
 
         let end = match self.buf.next() {
             Some((Token::CuBracketE, s)) => s.end,
-            _ => return None,
+            _ => {
+                self.errs.push((
+                    ParseError::UnendedScope,
+                    Span {
+                        start,
+                        end: self.last_token().unwrap().1.end
+                    }
+                ));
+                return None;
+            },
         };
 
         Some((
@@ -353,10 +379,6 @@ impl<'a> Parser<'a> {
             kind: NodeKind::While {
                 cond: expr,
                 body,
-                // span: Span {
-                //     start: scope_start,
-                //     end,
-                // },
             },
             span: Span {
                 start,
@@ -422,19 +444,38 @@ impl<'a> Parser<'a> {
         };
         let body = Box::new(body);
 
-        let els = match self.buf.peek() {
-            Some((Token::Else, _)) => {
-                self.buf.next();
-                let start = assert_token!(Token::If | Token::CuBracketS, self).start;
-                self.buf.rewind();
-                let mut body = Vec::with_capacity(1);
-                self.parse_inner(&mut body, depth + 1);
-                let end = self
-                    .buf
-                    .next()
-                    .map_or_else(Span::default, |a| a.1.clone())
-                    .end;
-                Some((Box::new(body[0].clone()), Span { start, end }))
+        let els = match self.buf.next() {
+            Some((Token::Else, Span { start, .. })) => {
+                let start = *start;
+                match self.buf.peek() {
+                    Some((Token::If, _)) => {
+                        let mut tmp = Vec::with_capacity(1);
+                        self.parse_if(&mut tmp, None, None, NodeExtra::default(), depth);
+                        if tmp.len() > 0 {
+                            let node = tmp.swap_remove(0);
+                            let end = node.span.end;
+                            Some((Box::new(node), Span {
+                                start,
+                                end,
+                            }))
+                        } else {
+                            None
+                        }
+                    },
+                    _ => {
+                        let (body, span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
+                            a
+                        } else {
+                            return;
+                        };
+                        let body = Box::new(body);
+
+                        Some((body, Span {
+                            start,
+                            end: span.end,
+                        }))
+                    },
+                }
             },
             _ => None,
         };
@@ -466,19 +507,14 @@ impl<'a> Parser<'a> {
         let span = self.buf.next().unwrap().1.clone();
 
         let ident = unwrap_ident!(self);
-        assert_token!(Token::RoBracketS, self).start;
+        assert_token!(Token::RoBracketS, "start of argument list", self).start;
 
         let mut params = Vec::new();
         while !matches!(self.buf.peek(), Some((Token::RoBracketE, _))) {
             let param = self.parse_fn_param();
-            param.map_or_else(
-                |e| {
-                    error!(e.0, e.1, self);
-                },
-                |param| {
-                    params.push(param);
-                },
-            );
+            if let Some(param) = param {
+                params.push(param);
+            };
         }
 
         self.buf.next();
@@ -523,25 +559,43 @@ impl<'a> Parser<'a> {
         });
     }
 
-    fn parse_fn_param(&mut self) -> Result<(AString, AType, Span), AError<ParseError>> {
+    fn parse_fn_param(&mut self) -> Option<(AString, AType, Span)> {
         let ident = match self.buf.next() {
             Some((Token::Ident, s)) => (self.src[s.start..s.end].to_string(), s.clone()),
-            Some((_, s)) => return Err((ParseError::UnexpectedToken, s.clone())),
-            None => return Err((ParseError::RanOutTokens, self.buf.prev().unwrap().1.clone())),
+            Some((t, s)) => {
+                self.errs.push((ParseError::UnexpectedToken {
+                    expected: Some("identifier"),
+                    found: t.clone(),
+                }, s.clone()));
+                return None;
+            },
+            None => {
+                self.errs.push((ParseError::RanOutTokens, self.buf.prev().unwrap().1.clone()));
+                return None;
+            },
         };
 
-        let typ = types::parse(self.buf, self.src, self.errs).unwrap();
+        let typ = types::parse(self.buf, self.src, self.errs)?;
 
         match self.buf.next() {
             Some((Token::Comma, _)) => (),
             Some((Token::RoBracketE, _)) => self.buf.rewind(),
-            Some((_, s)) => return Err((ParseError::UnexpectedToken, s.clone())),
-            None => return Err((ParseError::RanOutTokens, self.buf.prev().unwrap().1.clone())),
+            Some((t, s)) => {
+                self.errs.push((ParseError::UnexpectedToken {
+                    expected: Some("comma or end of argument list"),
+                    found: t.clone(),
+                }, s.clone()));
+                return None;
+            },
+            None => {
+                self.errs.push((ParseError::RanOutTokens, self.buf.prev().unwrap().1.clone()));
+                return None;
+            },
         }
 
         let start = ident.1.start;
         let end = typ.1.end;
 
-        Ok((ident, typ, Span { start, end }))
+        Some((ident, typ, Span { start, end }))
     }
 }

@@ -112,7 +112,7 @@ pub(super) fn parse(
                     last,
                     Token::Integer(_) | Token::Ident | Token::RoBracketE | Token::SqBracketE
                 ) {
-                    return Err((ParseError::UnexpectedToken, span));
+                    return Err((ParseError::UnexpectedTokenLegacy, span));
                 }
                 out.push((Expr::Integer(*i as i128), span.clone()));
             },
@@ -121,7 +121,7 @@ pub(super) fn parse(
                     last,
                     Token::Integer(_) | Token::Ident | Token::RoBracketE | Token::SqBracketE
                 ) {
-                    return Err((ParseError::UnexpectedToken, span));
+                    return Err((ParseError::UnexpectedTokenLegacy, span));
                 } else {
                     out.push((
                         Expr::Ident(vec![src[span.start..span.end].to_string()]),
@@ -154,7 +154,7 @@ pub(super) fn parse(
                     .ok_or((ParseError::RanOutOperands, span.clone()))?
                 {
                     (Token::Ident, span) => (src[span.start..span.end].to_string(), span.clone()),
-                    (_, span) => return Err((ParseError::UnexpectedToken, span.clone())),
+                    (_, span) => return Err((ParseError::UnexpectedTokenLegacy, span.clone())),
                 };
                 let end = next.1.end;
                 prev.push(next.0);
@@ -171,12 +171,12 @@ pub(super) fn parse(
                 if !matches!(buf.peek(), Some((Token::RoBracketE, _))) {
                     *fn_args
                         .last_mut()
-                        .ok_or((ParseError::UnexpectedToken, span.clone()))? += 1;
+                        .ok_or((ParseError::UnexpectedTokenLegacy, span.clone()))? += 1;
                 }
             },
             Token::RoBracketS => {
                 if matches!(last, Token::Integer(_)) {
-                    return Err((ParseError::UnexpectedToken, span));
+                    return Err((ParseError::UnexpectedTokenLegacy, span));
                 } else if infers!() {
                     // fn calls
                     let func = out.pop().unwrap();
@@ -217,7 +217,7 @@ pub(super) fn parse(
                 if infers!() {
                     ops.push((Operator::Index, span.clone(), false));
                 } else {
-                    return Err((ParseError::UnexpectedToken, span));
+                    return Err((ParseError::UnexpectedTokenLegacy, span));
                 }
             },
             Token::SqBracketE => {
@@ -244,10 +244,10 @@ pub(super) fn parse(
                 if ends_when_curly {
                     break;
                 } else {
-                    return Err((ParseError::UnexpectedToken, span));
+                    return Err((ParseError::UnexpectedTokenLegacy, span));
                 }
             },
-            _ => return Err((ParseError::UnexpectedToken, span)),
+            _ => return Err((ParseError::UnexpectedTokenLegacy, span)),
         }
 
         expr_span.start = expr_span.start.min(span.start);

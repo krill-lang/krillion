@@ -1,4 +1,5 @@
 use super::*;
+use std::fmt;
 pub use logos::*;
 
 #[derive(Debug, Clone, Logos)]
@@ -76,6 +77,27 @@ pub enum Token {
     NewLine,
 
     None,
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Integer(_) => write!(f, "integer"),
+            Self::Ident => write!(f, "identifier"),
+            Self::Semicolon => write!(f, "semicolon"),
+            Self::RoBracketS => write!(f, "bracket"),
+            Self::RoBracketE => write!(f, "bracket"),
+            Self::SqBracketS => write!(f, "square bracket"),
+            Self::SqBracketE => write!(f, "square bracket"),
+            Self::CuBracketS => write!(f, "curly bracket"),
+            Self::CuBracketE => write!(f, "curly bracket"),
+            Self::Operator(_) => write!(f, "operator"),
+            Self::ScopeOf => write!(f, "scope separator"),
+            Self::Of => write!(f, "dot"),
+            Self::Comma | Self::NewLine | Self::None => write!(f, "{}", format!("{self:?}").to_lowercase()),
+            _ => write!(f, "`{}`", format!("{self:?}").to_lowercase()),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

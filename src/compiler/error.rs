@@ -219,7 +219,11 @@ fn report_single<E: CompilerError>(
 #[derive(Debug, Clone)]
 #[allow(clippy::enum_variant_names)]
 pub enum ParseError {
-    UnexpectedToken,
+    UnexpectedTokenLegacy,
+    UnexpectedToken {
+        expected: Option<&'static str>,
+        found: Token,
+    },
     UnexpectedVisibility,
     UnexpectedLinkage,
     UnstartedBracket,
@@ -241,7 +245,13 @@ pub enum ParseError {
 impl CompilerError for ParseError {
     fn message(&self) -> String {
         match self {
-            Self::UnexpectedToken => "unexpected token".to_string(),
+            Self::UnexpectedTokenLegacy => "unexpected token (old error)".to_string(),
+            Self::UnexpectedToken {
+                expected: Some(expected), found
+            } => format!("expected {expected}, found {found}"),
+            Self::UnexpectedToken {
+                expected: None, found
+            } => format!("unexpected {found}"),
             Self::UnexpectedVisibility => "unexpected visibility qualifier".to_string(),
             Self::UnexpectedLinkage => "unexpected linkage specifier".to_string(),
             Self::UnstartedBracket => {
