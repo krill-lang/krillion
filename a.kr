@@ -1,2 +1,1 @@
-fn do_stuff(a [int], b [int * 3]) int {
-}
+a * b + c * d

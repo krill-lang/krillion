@@ -9,6 +9,12 @@ struct OperatorTableEntry {
 
 const OPERATOR_TABLE: &[OperatorTableEntry] = &[
     OperatorTableEntry {
+        operator: Operator::Assign,
+        is_unary: false,
+        is_left: false,
+        percedence: 1,
+    },
+    OperatorTableEntry {
         operator: Operator::LT,
         is_unary: false,
         is_left: true,
@@ -74,6 +80,12 @@ const OPERATOR_TABLE: &[OperatorTableEntry] = &[
         is_left: true,
         percedence: 12,
     },
+    OperatorTableEntry {
+        operator: Operator::Sub,
+        is_unary: true,
+        is_left: false,
+        percedence: 15,
+    },
 ];
 
 impl<'a> super::Parser<'a> {
@@ -83,15 +95,39 @@ impl<'a> super::Parser<'a> {
     }
 
     fn parse_expr_climb(&mut self, percedence: usize) -> Option<AExpr> {
-        let left = self.parse_single();
+        let mut rest = self.parse_single()?;
+
+        while let Some((Token::Operator(op), _)) = self.buf.peek() {
+            if let Some(op_e) = OPERATOR_TABLE.iter().find(|a| !a.is_unary && op == &a.operator && a.percedence >= percedence) {
+                let op = op.clone();
+                self.buf.next();
+
+                let right = self.parse_expr_climb(op_e.percedence + op_e.is_left as usize)?;
+
+                let start = rest.1.start;
+                let end = right.1.end;
+
+                if op_e.is_left {
+                    rest = (Expr::BiOp { lhs: Box::new(rest), rhs: Box::new(right), op: Box::new(op) }, Span {
+                        start,
+                        end,
+                    });
+                } else {
+                }
+            } else {
+                break;
+            }
+        }
 
         // TODO: {B Exp(q)}
+        Some(rest)
     }
 
     fn parse_single(&mut self) -> Option<AExpr> {
         let token = self.buf.next();
         match token {
             Some((Token::Integer(v), span)) => Some((Expr::Integer(*v as i128), span.clone())),
+            Some((Token::Ident, span)) => Some((Expr::Ident(vec![self.src.slice(span.clone()).unwrap().to_string()]), span.clone())), // TODO: scopes
             Some((Token::RoBracketS, Span { start, .. })) => {
                 let start = *start;
                 let inner = self.parse_expr()?;
@@ -110,7 +146,7 @@ impl<'a> super::Parser<'a> {
                     None => {
                         self.errs.push((
                             ParseError::UnendedBracket,
-                            self.last_token().unwrap().1
+                            self.last_token().unwrap().1.clone()
                         ));
 
                         0
@@ -123,7 +159,7 @@ impl<'a> super::Parser<'a> {
                 if let Some(op_e) = OPERATOR_TABLE.iter().find(|v| v.is_unary && v.operator == *op) {
                     let start = span.start;
                     let op = op.clone();
-                    let inner = self.parse_expr_climb(0)?; // TODO:
+                    let inner = self.parse_expr_climb(op_e.percedence)?;
                     let end = inner.1.end;
                     Some((Expr::UnOp { opr: Box::new(inner), op: Box::new(op) }, Span {
                         start,
@@ -155,7 +191,7 @@ impl<'a> super::Parser<'a> {
             None => {
                 self.errs.push((
                     ParseError::RanOutTokens,
-                    self.last_token().unwrap().1
+                    self.last_token().unwrap().1.clone()
                 ));
 
                 None

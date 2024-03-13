@@ -24,5 +24,7 @@ fn main() {
     }
 
     println!("cargo:rustc-env=COMMIT={commit}");
-    println!("cargo:rerun-if-changed=.git/revs/heads");
+
+    println!("cargo:rerun-if-changed=.git/refs/heads");
+    println!("cargo:rerun-if-changed=.git/HEAD");
 }
