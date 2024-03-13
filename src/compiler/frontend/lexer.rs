@@ -112,7 +112,6 @@ pub enum Operator {
     Assign,
     OpAssign(Box<Operator>),
 
-    RoBracketS,
     Index,
     Eq,
     NE,
@@ -129,39 +128,39 @@ pub enum Operator {
 
     LSh,
     RSh,
-    FnCall(Identifier),
 }
 
 impl Operator {
-    pub const fn percedence(&self, unary: bool) -> usize {
-        use Operator::*;
-        if !unary {
-            match self {
-                Index => 14,
-                RoBracketS | FnCall(_) => 13,
-                Mlt | Div | Mod => 11,
-                Add | Sub => 10,
-                LSh | RSh => 9,
-                LT | LE | GT | GE => 8,
-                Eq | NE => 7,
-                BAnd => 6,
-                BXOr => 5,
-                BOr => 4,
-                LAnd => 3,
-                LOr => 2,
-                Assign | OpAssign(_) => 1,
-                _ => 0,
-            }
-        } else {
-            match self {
-                Add | Sub | Mlt | Not => 12,
-                _ => 0,
-            }
+    pub fn percedence(&self, unary: bool) -> usize {
+        match (self, unary) {
+            (Self::Assign | Self::OpAssign(_), false) => 1,
+            (Self::LT | Self::LE | Self::GT | Self::GE, false) => 9,
+            (Self::LSh | Self::RSh, false) => 10,
+            (Self::Add | Self::Sub, false) => 11,
+            (Self::Mlt | Self::Div | Self::Mod, false) => 12,
+            (Self::Add | Self::Sub, true) => 15,
+            _ => todo!()
         }
     }
-    pub const fn is_left(&self) -> bool {
-        use Operator::*;
-        !matches!(self, Assign | OpAssign(_))
+
+    pub fn is_left(&self, unary: bool) -> bool {
+        match (self, unary) {
+            (Self::Assign | Self::OpAssign(_), _) | (Self::Add | Self::Sub, true) => false,
+            _ => true,
+        }
+    }
+
+    pub fn is_binary(&self) -> bool {
+        match self {
+            _ => true,
+        }
+    }
+
+    pub fn is_unary(&self) -> bool {
+        match self {
+            Self::Add | Self::Sub => true,
+            _ => false,
+        }
     }
 }
 
@@ -218,4 +217,4 @@ fn _parse_oper(s: &str) -> Operator {
     }
 }
 
-pub type AToken = (Token, Span);
+pub type AToken = Annotated<Token>;

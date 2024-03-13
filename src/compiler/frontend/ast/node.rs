@@ -76,7 +76,7 @@ pub enum Expr {
         op: Box<Operator>,
     },
     FnCall {
-        id: Identifier,
+        id: Box<AExpr>,
         op: Vec<AExpr>,
     },
 }

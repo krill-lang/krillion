@@ -95,21 +95,31 @@ macro_rules! unwrap_ident {
 #[macro_export]
 macro_rules! assert_token {
     ($intended: pat, $expected: expr, $self: expr) => {
-        match $self.buf.next() {
-            Some(($intended, s)) => s.clone(),
-            Some((t, s)) => error!(
-                ParseError::UnexpectedToken {
-                    expected: Some($expected),
-                    found: t.clone(),
-                },
-                s.clone(),
-                $self
-            ),
-            None => error!(
-                ParseError::RanOutTokens,
-                $self.buf.prev().unwrap().1.clone(),
-                $self
-            ),
+        match $self.buf.peek() {
+            Some(($intended, s)) => {
+                let s = s.clone();
+                $self.buf.next();
+                s
+            },
+            Some((t, s)) => {
+                $self.errs.push((
+                    ParseError::UnexpectedToken {
+                        expected: Some($expected),
+                        found: t.clone(),
+                    },
+                    s.clone()
+                ));
+
+                s.clone()
+            },
+            None => {
+                $self.errs.push((
+                    ParseError::RanOutTokens,
+                    $self.buf.prev().unwrap().1.clone()
+                ));
+
+                Span::default()
+            },
         }
     };
 }

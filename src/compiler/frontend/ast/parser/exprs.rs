@@ -1,130 +1,70 @@
 use super::*;
 
-struct OperatorTableEntry {
-    operator: Operator,
-    is_unary: bool,
-    is_left: bool,
-    percedence: usize,
-}
-
-const OPERATOR_TABLE: &[OperatorTableEntry] = &[
-    OperatorTableEntry {
-        operator: Operator::Assign,
-        is_unary: false,
-        is_left: false,
-        percedence: 1,
-    },
-    OperatorTableEntry {
-        operator: Operator::LT,
-        is_unary: false,
-        is_left: true,
-        percedence: 9,
-    },
-    OperatorTableEntry {
-        operator: Operator::LE,
-        is_unary: false,
-        is_left: true,
-        percedence: 9,
-    },
-    OperatorTableEntry {
-        operator: Operator::GT,
-        is_unary: false,
-        is_left: true,
-        percedence: 9,
-    },
-    OperatorTableEntry {
-        operator: Operator::GE,
-        is_unary: false,
-        is_left: true,
-        percedence: 9,
-    },
-    OperatorTableEntry {
-        operator: Operator::LSh,
-        is_unary: false,
-        is_left: true,
-        percedence: 10,
-    },
-    OperatorTableEntry {
-        operator: Operator::RSh,
-        is_unary: false,
-        is_left: true,
-        percedence: 10,
-    },
-    OperatorTableEntry {
-        operator: Operator::Add,
-        is_unary: false,
-        is_left: true,
-        percedence: 11,
-    },
-    OperatorTableEntry {
-        operator: Operator::Sub,
-        is_unary: false,
-        is_left: true,
-        percedence: 11,
-    },
-    OperatorTableEntry {
-        operator: Operator::Mlt,
-        is_unary: false,
-        is_left: true,
-        percedence: 12,
-    },
-    OperatorTableEntry {
-        operator: Operator::Div,
-        is_unary: false,
-        is_left: true,
-        percedence: 12,
-    },
-    OperatorTableEntry {
-        operator: Operator::Mod,
-        is_unary: false,
-        is_left: true,
-        percedence: 12,
-    },
-    OperatorTableEntry {
-        operator: Operator::Sub,
-        is_unary: true,
-        is_left: false,
-        percedence: 15,
-    },
-];
-
 impl<'a> super::Parser<'a> {
     // https://www.engr.mun.ca/~theo/Misc/exp_parsing.htm#climbing
+    #[inline(always)]
     pub(super) fn parse_expr(&mut self) -> Option<AExpr> { self.parse_expr_climb(0) }
 
     fn parse_expr_climb(&mut self, percedence: usize) -> Option<AExpr> {
         let mut rest = self.parse_single()?;
 
-        while let Some((Token::Operator(op), _)) = self.buf.peek() {
-            if let Some(op_e) = OPERATOR_TABLE
-                .iter()
-                .find(|a| !a.is_unary && op == &a.operator && a.percedence >= percedence)
-            {
-                let op = op.clone();
-                self.buf.next();
+        while let Some((tok, _)) = self.buf.next() {
+            match tok {
+                Token::Operator(op) if op.is_binary() && op.percedence(false) >= percedence => {
+                    let op = op.clone();
 
-                let right = self.parse_expr_climb(op_e.percedence + op_e.is_left as usize)?;
+                    let right = self.parse_expr_climb(op.percedence(false) + op.is_left(false) as usize)?;
 
-                let start = rest.1.start;
-                let end = right.1.end;
+                    let start = rest.1.start;
+                    let end = right.1.end;
 
-                if op_e.is_left {
+                    if op.is_left(false) {
+                        rest = (
+                            Expr::BiOp {
+                                lhs: Box::new(rest),
+                                rhs: Box::new(right),
+                                op: Box::new(op),
+                            },
+                            Span { start, end },
+                        );
+                    }
+                },
+                Token::RoBracketS => {
+                    let mut op = Vec::new();
+
+                    let start = rest.1.start;
+                    let end = assert_token!(Token::RoBracketE, "end of function call", self).end;
+
                     rest = (
-                        Expr::BiOp {
-                            lhs: Box::new(rest),
-                            rhs: Box::new(right),
-                            op: Box::new(op),
+                        Expr::FnCall {
+                            id: Box::new(rest),
+                            op
                         },
                         Span { start, end },
                     );
-                } else {
-                }
-            } else {
-                break;
+                },
+                Token::SqBracketS => {
+                    let idx = self.parse_expr()?;
+
+                    let start = rest.1.start;
+                    let end = assert_token!(Token::SqBracketE, "end of index square bracket", self).end;
+
+                    rest = (
+                        Expr::BiOp {
+                            lhs: Box::new(rest),
+                            rhs: Box::new(idx),
+                            op: Box::new(Operator::Index),
+                        },
+                        Span { start, end },
+                    );
+                },
+                _ => {
+                    self.buf.rewind();
+                    break;
+                },
             }
         }
 
-        // TODO: {B Exp(q)}
         Some(rest)
     }
 
@@ -164,13 +104,10 @@ impl<'a> super::Parser<'a> {
                 Some((inner.0, Span { start, end }))
             },
             Some((Token::Operator(op), span)) => {
-                if let Some(op_e) = OPERATOR_TABLE
-                    .iter()
-                    .find(|v| v.is_unary && v.operator == *op)
-                {
+                if op.is_unary() {
                     let start = span.start;
                     let op = op.clone();
-                    let inner = self.parse_expr_climb(op_e.percedence)?;
+                    let inner = self.parse_expr_climb(op.percedence(true))?;
                     let end = inner.1.end;
                     Some((
                         Expr::UnOp {
