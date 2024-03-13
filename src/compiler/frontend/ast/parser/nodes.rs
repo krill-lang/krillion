@@ -132,7 +132,12 @@ impl<'a> Parser<'a> {
             kind: NodeKind::Expr(expr),
             span: Span {
                 start: span.start,
-                end: self.buf.current().unwrap_or_else(|| self.last_token().unwrap()).1.start,
+                end: self
+                    .buf
+                    .current()
+                    .unwrap_or_else(|| self.last_token().unwrap())
+                    .1
+                    .start,
             },
             extra,
         });
