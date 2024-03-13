@@ -396,7 +396,7 @@ impl<'a> Parser<'a> {
                     Some((Token::If, _)) => {
                         let mut tmp = Vec::with_capacity(1);
                         self.parse_if(&mut tmp, None, None, NodeExtra::default(), depth);
-                        if tmp.len() > 0 {
+                        if !tmp.is_empty() {
                             let node = tmp.swap_remove(0);
                             let end = node.span.end;
                             Some((Box::new(node), Span { start, end }))

@@ -131,7 +131,7 @@ pub enum Operator {
 }
 
 impl Operator {
-    pub fn percedence(&self, unary: bool) -> usize {
+    pub const fn percedence(&self, unary: bool) -> usize {
         match (self, unary) {
             (Self::Assign | Self::OpAssign(_), false) => 1,
             (Self::LT | Self::LE | Self::GT | Self::GE, false) => 9,
@@ -143,25 +143,20 @@ impl Operator {
         }
     }
 
-    pub fn is_left(&self, unary: bool) -> bool {
-        match (self, unary) {
-            (Self::Assign | Self::OpAssign(_), _) | (Self::Add | Self::Sub, true) => false,
-            _ => true,
-        }
+    pub const fn is_left(&self, unary: bool) -> bool {
+        !matches!(
+            (self, unary),
+            (Self::Assign | Self::OpAssign(_), _) | (Self::Add | Self::Sub, true)
+        )
     }
 
-    pub fn is_binary(&self) -> bool {
+    pub const fn is_binary(&self) -> bool {
         match self {
             _ => true,
         }
     }
 
-    pub fn is_unary(&self) -> bool {
-        match self {
-            Self::Add | Self::Sub => true,
-            _ => false,
-        }
-    }
+    pub const fn is_unary(&self) -> bool { matches!(self, Self::Add | Self::Sub) }
 }
 
 fn parse_int(lex: &Lexer<Token>) -> u128 {

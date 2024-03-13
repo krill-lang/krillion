@@ -13,13 +13,7 @@ struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     fn last_token(&self) -> Option<&AToken> {
-        for i in self.buf.buf.iter().rev() {
-            if i.1.start != i.1.end {
-                return Some(i);
-            }
-        }
-
-        None
+        self.buf.buf.iter().rev().find(|&i| i.1.start != i.1.end)
     }
 }
 
