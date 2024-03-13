@@ -139,7 +139,7 @@ impl Operator {
             (Self::Add | Self::Sub, false) => 11,
             (Self::Mlt | Self::Div | Self::Mod, false) => 12,
             (Self::Add | Self::Sub, true) => 15,
-            _ => todo!()
+            _ => todo!(),
         }
     }
 

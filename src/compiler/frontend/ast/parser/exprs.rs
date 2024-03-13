@@ -13,7 +13,8 @@ impl<'a> super::Parser<'a> {
                 Token::Operator(op) if op.is_binary() && op.percedence(false) >= percedence => {
                     let op = op.clone();
 
-                    let right = self.parse_expr_climb(op.percedence(false) + op.is_left(false) as usize)?;
+                    let right =
+                        self.parse_expr_climb(op.percedence(false) + op.is_left(false) as usize)?;
 
                     let start = rest.1.start;
                     let end = right.1.end;
@@ -38,7 +39,7 @@ impl<'a> super::Parser<'a> {
                     rest = (
                         Expr::FnCall {
                             id: Box::new(rest),
-                            op
+                            op,
                         },
                         Span { start, end },
                     );
@@ -47,7 +48,8 @@ impl<'a> super::Parser<'a> {
                     let idx = self.parse_expr()?;
 
                     let start = rest.1.start;
-                    let end = assert_token!(Token::SqBracketE, "end of index square bracket", self).end;
+                    let end =
+                        assert_token!(Token::SqBracketE, "end of index square bracket", self).end;
 
                     rest = (
                         Expr::BiOp {

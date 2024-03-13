@@ -107,7 +107,7 @@ macro_rules! assert_token {
                         expected: Some($expected),
                         found: t.clone(),
                     },
-                    s.clone()
+                    s.clone(),
                 ));
 
                 s.clone()
@@ -115,7 +115,7 @@ macro_rules! assert_token {
             None => {
                 $self.errs.push((
                     ParseError::RanOutTokens,
-                    $self.buf.prev().unwrap().1.clone()
+                    $self.buf.prev().unwrap().1.clone(),
                 ));
 
                 Span::default()
