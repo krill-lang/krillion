@@ -313,8 +313,6 @@ impl<'a> Parser<'a> {
             return;
         };
 
-        self.buf.rewind();
-
         let (body, span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
             a
         } else {
@@ -379,8 +377,6 @@ impl<'a> Parser<'a> {
         } else {
             return;
         };
-
-        self.buf.rewind();
 
         let (body, span) = if let Some(a) = self.parse_scope_impl(depth, NodeExtra::default()) {
             a

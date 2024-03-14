@@ -32,6 +32,7 @@ impl<'a> super::Parser<'a> {
                 },
                 Token::RoBracketS => {
                     let mut op = Vec::new();
+                    // TODO: arguments
 
                     let start = rest.1.start;
                     let end = assert_token!(Token::RoBracketE, "end of function call", self).end;
@@ -86,7 +87,7 @@ impl<'a> super::Parser<'a> {
                     Some((t, span)) => {
                         self.errs.push((
                             ParseError::UnexpectedToken {
-                                expected: Some("end of bracket"),
+                                expected: Some("end of round bracket"),
                                 found: t.clone(),
                             },
                             span.clone(),
@@ -133,7 +134,7 @@ impl<'a> super::Parser<'a> {
             Some((t, span)) => {
                 self.errs.push((
                     ParseError::UnexpectedToken {
-                        expected: Some("value, unary operator or brackets"),
+                        expected: Some("value, unary operator or start of round bracket"),
                         found: t.clone(),
                     },
                     span.clone(),
