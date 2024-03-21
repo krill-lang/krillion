@@ -7,7 +7,7 @@ impl<'a> Parser<'a> {
                 let typ = Type::from_str(self.src.slice(span.clone()).unwrap());
                 Some((typ, span.clone()))
             },
-            Some((Token::Operator(Operator::BAnd), Span { start, .. })) => {
+            Some((Token::Operator(Operator::And), Span { start, .. })) => {
                 let start = *start;
                 let inner = self.parse_type();
                 inner.map(|inner| {
@@ -15,7 +15,7 @@ impl<'a> Parser<'a> {
                     (Type::Pointer(Box::new(inner)), Span { start, end })
                 })
             },
-            Some((Token::Operator(Operator::LAnd), span)) => {
+            Some((Token::Operator(Operator::AndAnd), span)) => {
                 let start_1 = span.start;
                 let start_2 = span.start + 1;
                 let inner = self.parse_type()?;

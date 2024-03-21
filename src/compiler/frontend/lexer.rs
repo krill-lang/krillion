@@ -91,7 +91,7 @@ impl fmt::Display for Token {
             Self::SqBracketE => write!(f, "end of square bracket"),
             Self::CuBracketS => write!(f, "start of curly bracket"),
             Self::CuBracketE => write!(f, "end of curly bracket"),
-            Self::Operator(op) => write!(f, "operator"),
+            Self::Operator(_) => write!(f, "operator"),
             Self::ScopeOf => write!(f, "scope separator"),
             Self::Of => write!(f, "dot"),
             Self::Comma | Self::NewLine | Self::None => {
@@ -104,6 +104,7 @@ impl fmt::Display for Token {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operator {
+    // binary
     Add,
     Sub,
     Mlt,
@@ -119,44 +120,70 @@ pub enum Operator {
     GE,
     LT,
     LE,
-    BAnd,
-    BOr,
-    BXOr,
+    And,
+    Or,
+    Xor,
     Not,
-    LAnd,
-    LOr,
+    AndAnd,
+    OrOr,
 
     LSh,
     RSh,
+
+    // unary
+    Plus,
+    Minus,
+    Deref,
+    Ref,
 }
 
 impl Operator {
-    pub const fn percedence(&self, unary: bool) -> usize {
-        match (self, unary) {
-            (Self::Assign | Self::OpAssign(_), false) => 1,
-            (Self::LT | Self::LE | Self::GT | Self::GE, false) => 9,
-            (Self::LSh | Self::RSh, false) => 10,
-            (Self::Add | Self::Sub, false) => 11,
-            (Self::Mlt | Self::Div | Self::Mod, false) => 12,
-            (Self::Add | Self::Sub, true) => 15,
+    pub const fn percedence(&self) -> usize {
+        match self {
+            Self::Plus | Self::Minus | Self::Deref | Self::Ref => 15,
+            Self::Mlt | Self::Div | Self::Mod => 12,
+            Self::Add | Self::Sub => 11,
+            Self::LSh | Self::RSh => 10,
+            Self::LT | Self::LE | Self::GT | Self::GE => 9,
+            Self::Eq | Self::NE => 8,
+            Self::And => 7,
+            Self::Xor => 6,
+            Self::Or => 5,
+            Self::AndAnd => 4,
+            Self::OrOr => 3,
+            Self::Assign | Self::OpAssign(_) => 1,
             _ => todo!(),
         }
     }
 
-    pub const fn is_left(&self, unary: bool) -> bool {
+    pub const fn is_left(&self) -> bool {
         !matches!(
-            (self, unary),
-            (Self::Assign | Self::OpAssign(_), _) | (Self::Add | Self::Sub, true)
+            self,
+            Self::Assign | Self::OpAssign(_) | Self::Plus | Self::Minus | Self::Deref | Self::Ref
         )
     }
 
-    pub const fn is_binary(&self) -> bool {
+    pub const fn to_unary(&self) -> Option<Self> {
         match self {
-            _ => true,
+            Self::Add => Some(Self::Plus),
+            Self::Sub => Some(Self::Minus),
+            Self::Mlt => Some(Self::Deref),
+            Self::And => Some(Self::Ref),
+            _ => None,
         }
     }
 
-    pub const fn is_unary(&self) -> bool { matches!(self, Self::Add | Self::Sub) }
+    pub const fn is_binary(&self) -> bool { !self.is_unary() }
+
+    pub const fn is_unary(&self) -> bool { matches!(self, Self::Plus | Self::Minus | Self::Deref | Self::Ref) }
+
+    pub const fn break_down(&self) -> Option<&'static [Self]> {
+        match self {
+            Self::AndAnd => Some(&[Self::And, Self::And]),
+            Self::OrOr => Some(&[Self::Or, Self::Or]),
+            _ => None,
+        }
+    }
 }
 
 fn parse_int(lex: &Lexer<Token>) -> u128 {
@@ -181,8 +208,8 @@ fn parse_operator(lex: &Lexer<Token>) -> Operator {
         ">" => GT,
         ">=" => GE,
         "!" => Not,
-        "&&" => LAnd,
-        "||" => LOr,
+        "&&" => AndAnd,
+        "||" => OrOr,
 
         _ => {
             if s.ends_with('=') && s.len() > 1 {
@@ -203,9 +230,9 @@ fn _parse_oper(s: &str) -> Operator {
         "/" => Div,
         "%" => Mod,
         "=" => Assign,
-        "|" => BOr,
-        "&" => BAnd,
-        "^" => BXOr,
+        "|" => Or,
+        "&" => And,
+        "^" => Xor,
         "<<" => LSh,
         ">>" => RSh,
         _ => unreachable!(),
