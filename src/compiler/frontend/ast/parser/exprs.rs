@@ -149,7 +149,7 @@ impl<'a> super::Parser<'a> {
                                 expected: Some("unary operator"),
                                 found: this.0,
                             },
-                            span.clone(),
+                            span,
                         ));
 
                         return None;
