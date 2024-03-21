@@ -175,7 +175,9 @@ impl Operator {
 
     pub const fn is_binary(&self) -> bool { !self.is_unary() }
 
-    pub const fn is_unary(&self) -> bool { matches!(self, Self::Plus | Self::Minus | Self::Deref | Self::Ref) }
+    pub const fn is_unary(&self) -> bool {
+        matches!(self, Self::Plus | Self::Minus | Self::Deref | Self::Ref)
+    }
 
     pub const fn break_down(&self) -> Option<&'static [Self]> {
         match self {

@@ -13,8 +13,7 @@ impl<'a> super::Parser<'a> {
                 Token::Operator(op) if op.is_binary() && op.percedence() >= percedence => {
                     let op = op.clone();
 
-                    let right =
-                        self.parse_expr_climb(op.percedence() + op.is_left() as usize)?;
+                    let right = self.parse_expr_climb(op.percedence() + op.is_left() as usize)?;
 
                     let start = rest.1.start;
                     let end = right.1.end;
