@@ -13,7 +13,8 @@ struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     fn last_token(&self) -> Option<&AToken> {
-        self.buf.buf.iter().rev().find(|&i| i.1.start != i.1.end)
+        // self.buf.buf.iter().rev().find(|&i| i.1.start != i.1.end)
+        self.buf.buf.last()
     }
 }
 
@@ -37,7 +38,7 @@ macro_rules! unwrap_or_return_set_buf {
             Some(a) => a,
             _ => {
                 while let Some((t, _)) = $buf.next() {
-                    if matches!(t, Token::Semicolon | Token::CuBracketS) {
+                    if matches!(t, Token::Semicolon(_) | Token::CuBracketS) {
                         break;
                     }
                 }
@@ -54,7 +55,7 @@ macro_rules! error {
     ($reason: expr, $span: expr, $self: expr) => {{
         $self.errs.push(($reason, $span));
         while let Some((t, _)) = $self.buf.next() {
-            if matches!(t, Token::Semicolon | Token::CuBracketS) {
+            if matches!(t, Token::Semicolon(_) | Token::CuBracketS) {
                 break;
             }
         }

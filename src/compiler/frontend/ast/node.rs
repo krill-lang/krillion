@@ -81,7 +81,7 @@ pub enum Expr {
     },
 }
 
-pub type Identifier = Vec<String>;
+pub type Identifier = Vec<AString>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {

@@ -93,10 +93,47 @@ impl<'a> super::Parser<'a> {
         let token = self.buf.next();
         match token {
             Some((Token::Integer(v), span)) => Some((Expr::Integer(*v as i128), span.clone())),
-            Some((Token::Ident, span)) => Some((
-                Expr::Ident(vec![self.src.slice(span.clone()).unwrap().to_string()]),
-                span.clone(),
-            )), // TODO: scopes
+            Some((Token::Ident, span)) => {
+                let mut total_span = span.clone();
+                let mut segs = vec![(self.src.slice(span.clone()).unwrap().to_string(), span.clone())];
+
+                while let Some((Token::ModSep, _)) = self.buf.peek() {
+                    self.buf.next();
+
+                    match self.buf.next() {
+                        Some((Token::Ident, span)) => {
+                            total_span.end = span.end;
+                            segs.push((self.src.slice(span.clone()).unwrap().to_string(), span.clone()))
+                        },
+                        Some((t, span)) => {
+                            self.errs.push((
+                                ParseError::UnexpectedToken {
+                                    expected: Some("identifier"),
+                                    found: t.clone(),
+                                },
+                                span.clone(),
+                            ));
+
+                            return None;
+                        },
+                        None => {
+                            self.errs.push((
+                                ParseError::RanOutTokens,
+                                self.last_token().unwrap().1.clone(),
+                            ));
+
+                            return None;
+                        },
+                    }
+                }
+
+                Some((Expr::Ident(segs), total_span))
+
+                // Some((
+                //     Expr::Ident(vec![self.src.slice(span.clone()).unwrap().to_string()]),
+                //     span.clone(),
+                // )),
+            },
             Some((Token::RoBracketS, Span { start, .. })) => {
                 let start = *start;
                 let inner = self.parse_expr()?;

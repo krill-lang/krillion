@@ -13,8 +13,8 @@ pub enum Token {
     #[regex(r"[_a-zA-Z0-9\u0100-\x{fffff}]+", priority = 0)]
     Ident,
 
-    #[token(";")]
-    Semicolon,
+    #[token(";", callback = |_| false)]
+    Semicolon(bool),
 
     #[token("(")]
     RoBracketS,
@@ -36,7 +36,7 @@ pub enum Token {
     Operator(Operator),
 
     #[token("::")]
-    ScopeOf,
+    ModSep,
     #[token(".")]
     Of,
 
@@ -84,7 +84,8 @@ impl fmt::Display for Token {
         match self {
             Self::Integer(_) => write!(f, "integer"),
             Self::Ident => write!(f, "identifier"),
-            Self::Semicolon => write!(f, "semicolon"),
+            Self::Semicolon(true) => write!(f, "newline"),
+            Self::Semicolon(false) => write!(f, "semicolon"),
             Self::RoBracketS => write!(f, "start of round bracket"),
             Self::RoBracketE => write!(f, "end of round bracket"),
             Self::SqBracketS => write!(f, "start ofsquare bracket"),
@@ -92,7 +93,7 @@ impl fmt::Display for Token {
             Self::CuBracketS => write!(f, "start of curly bracket"),
             Self::CuBracketE => write!(f, "end of curly bracket"),
             Self::Operator(_) => write!(f, "operator"),
-            Self::ScopeOf => write!(f, "scope separator"),
+            Self::ModSep => write!(f, "module qualifier"),
             Self::Of => write!(f, "dot"),
             Self::Comma | Self::NewLine | Self::None => {
                 write!(f, "{}", format!("{self:?}").to_lowercase())

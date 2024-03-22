@@ -20,13 +20,7 @@ pub fn preprocess(buf: &mut Buffer<AToken>) -> (Buffer<AToken>, Vec<AError<Lexer
                 buf.peek().unwrap_or(&(Token::None, Span::default())).0,
                 Token::Of | Token::RoBracketE,
             ) {
-                new.push((
-                    Token::Semicolon,
-                    Span {
-                        start: tok.1.start,
-                        end: tok.1.start,
-                    },
-                ));
+                new.push((Token::Semicolon(true), tok.1.clone()));
             }
         } else {
             new.push(tok.clone());

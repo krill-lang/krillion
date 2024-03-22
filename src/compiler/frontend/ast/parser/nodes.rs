@@ -74,7 +74,7 @@ impl<'a> Parser<'a> {
         let linkage = self.parse_linkage();
 
         (match self.buf.peek() {
-            Some((Token::Semicolon, _)) => Self::parse_nothing,
+            Some((Token::Semicolon(_), _)) => Self::parse_nothing,
             Some((Token::Let, _)) => Self::parse_let,
             Some((Token::CuBracketS, _)) => Self::parse_scope,
             Some((Token::CuBracketE, _)) => return false,
@@ -174,7 +174,7 @@ impl<'a> Parser<'a> {
 
         let typ = match self.buf.peek() {
             Some((Token::Operator(Operator::Assign), _)) => None,
-            Some((Token::Semicolon, _)) => None,
+            Some((Token::Semicolon(_), _)) => None,
             Some(_) => Some(unwrap_or_return_set_buf!(self.parse_type(), self.buf)),
             None => error!(ParseError::RanOutTokens, span, self),
         };
@@ -188,7 +188,7 @@ impl<'a> Parser<'a> {
                 };
                 (Some(expr), self.buf.current().unwrap().1.start)
             },
-            Some((Token::Semicolon, _)) => (None, self.buf.current().unwrap().1.start),
+            Some((Token::Semicolon(_), _)) => (None, self.buf.current().unwrap().1.start),
             Some((t, s)) => error!(
                 ParseError::UnexpectedToken {
                     expected: Some("assign operator, semicolon or newline"),
@@ -344,7 +344,7 @@ impl<'a> Parser<'a> {
         let span = self.buf.next().unwrap().1.clone();
 
         let value = match self.buf.peek() {
-            Some((Token::Semicolon, _)) | None => None,
+            Some((Token::Semicolon(_), _)) | None => None,
             _ => self.parse_expr(),
         };
 
