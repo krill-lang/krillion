@@ -1,12 +1,5 @@
 use super::*;
 
-pub type Ast<Kind> = Vec<Node<Kind>>;
-pub type UntypedAst = Ast<UntypedNode>;
-pub type TypedAst = Ast<TypedNode>;
-
-pub type UntypedNode = NodeKind<AExpr>;
-pub type TypedNode = NodeKind<(AExpr, Type)>;
-
 #[derive(Debug, Clone)]
 pub struct Node<Kind> {
     pub kind: Kind,
@@ -63,25 +56,23 @@ pub enum NodeKind<Expr: std::fmt::Debug + Clone> {
 }
 
 #[derive(Debug, Clone)]
-pub enum Expr {
+pub enum Expr<Extra: std::fmt::Debug + Clone, Identifier: std::fmt::Debug + Clone> {
     Integer(i128),
     Ident(Identifier),
     BiOp {
-        lhs: Box<AExpr>,
-        rhs: Box<AExpr>,
+        lhs: Box<(Self, Extra)>,
+        rhs: Box<(Self, Extra)>,
         op: Box<Operator>,
     },
     UnOp {
-        opr: Box<AExpr>,
+        opr: Box<(Self, Extra)>,
         op: Box<Operator>,
     },
     FnCall {
-        id: Box<AExpr>,
-        op: Vec<AExpr>,
+        id: Box<(Self, Extra)>,
+        op: Vec<(Self, Extra)>,
     },
 }
-
-pub type Identifier = Vec<AString>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {

@@ -196,7 +196,8 @@ fn report_single<E: CompilerError>(
                 "^".repeat(
                     (UnicodeWidthStr::width_cjk(
                         &ctx.source[span.start.max(start_idx)..span.end.min(end_idx)]
-                    ) + in_tabs * 4).max(1)
+                    ) + in_tabs * 4)
+                        .max(1)
                 ),
             )?;
         } else {
@@ -217,7 +218,6 @@ fn report_single<E: CompilerError>(
 }
 
 #[derive(Debug, Clone)]
-#[allow(clippy::enum_variant_names)]
 pub enum ParseError {
     UnexpectedToken {
         expected: Option<&'static str>,
@@ -290,6 +290,23 @@ pub struct LexerError;
 impl CompilerError for LexerError {
     fn message(&self) -> String { "lexer error".to_string() }
     fn consider(&self) -> Option<String> { None }
+    fn severeness(&self) -> Severeness { Severeness::Error }
+}
+
+#[derive(Debug, Clone)]
+pub enum NumerateError {
+    NameUndefined,
+}
+
+impl CompilerError for NumerateError {
+    fn message(&self) -> String {
+        match self {
+            Self::NameUndefined => "cannot find this name in the current scope".to_string(),
+        }
+    }
+
+    fn consider(&self) -> Option<String> { None }
+
     fn severeness(&self) -> Severeness { Severeness::Error }
 }
 

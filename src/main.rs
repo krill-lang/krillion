@@ -57,4 +57,7 @@ fn main() {
     println!("root:\n{ast:#?}"); // AstFormatter(&ast).formatter(2));
                                  // let typed = unwrap_or_report!(typecheck(&ast));
                                  // println!("{typed:#?}");
+
+    let nast = unwrap_or_report!(numerate(ast));
+    println!("{nast:#?}");
 }
