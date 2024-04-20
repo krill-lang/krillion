@@ -12,7 +12,7 @@ impl<'a> Parser<'a> {
                 let inner = self.parse_type();
                 inner.map(|inner| {
                     let end = inner.1.end;
-                    (Type::Pointer(Box::new(inner)), Span { start, end })
+                    (Type::Pointer(Box::new(inner)), start..end)
                 })
             },
             Some((Token::Operator(Operator::AndAnd), span)) => {
@@ -23,15 +23,9 @@ impl<'a> Parser<'a> {
                 Some((
                     Type::Pointer(Box::new((
                         Type::Pointer(Box::new(inner)),
-                        Span {
-                            start: start_2,
-                            end,
-                        },
+                        start_2..end,
                     ))),
-                    Span {
-                        start: start_1,
-                        end,
-                    },
+                    start_1..end,
                 ))
             },
             Some((Token::SqBracketS, Span { start, .. })) => {
@@ -41,10 +35,7 @@ impl<'a> Parser<'a> {
                 match self.buf.next() {
                     Some((Token::SqBracketE, end_span)) => Some((
                         Type::Slice(Box::new(inner)),
-                        Span {
-                            start,
-                            end: end_span.end,
-                        },
+                        start..end_span.end,
                     )),
                     Some((Token::Operator(Operator::Mlt), _)) => {
                         let size = match self.buf.next() {
@@ -93,7 +84,7 @@ impl<'a> Parser<'a> {
                             },
                         };
 
-                        Some((Type::Array(Box::new(inner), size), Span { start, end }))
+                        Some((Type::Array(Box::new(inner), size), start..end))
                     },
                     Some((t, span)) => {
                         self.errs.push((
@@ -110,6 +101,103 @@ impl<'a> Parser<'a> {
                             ParseError::RanOutTokens,
                             self.last_token().unwrap().1.clone(),
                         ));
+                        None
+                    },
+                }
+            },
+            Some((Token::Fn, span)) => {
+                let start = span.start;
+
+                match self.buf.next() {
+                    Some((Token::RoBracketS, _)) => {},
+                    Some((t, span)) => {
+                        self.errs.push((
+                            ParseError::UnexpectedToken {
+                                expected: Some("start of argument list"),
+                                found: t.clone(),
+                            },
+                            span.clone(),
+                        ));
+                        return None;
+                    },
+                    None => {
+                        let prev = self.buf.prev().map_or_else(Span::default, |a| a.1.clone());
+                        self.errs.push((ParseError::RanOutTokens, prev));
+                        return None;
+                    },
+                }
+
+                let mut end = 0;
+                let mut args = Vec::new();
+
+                loop {
+                    match self.buf.peek() {
+                        Some((Token::RoBracketE, span)) => {
+                            end = span.end;
+                            break;
+                        },
+                        Some(_) => {},
+                        None => {
+                            let prev = self.buf.prev().map_or_else(Span::default, |a| a.1.clone());
+                            self.errs.push((ParseError::RanOutTokens, prev));
+                            return None;
+                        },
+                    }
+
+                    args.push(self.parse_type()?.0);
+
+                    match self.buf.next() {
+                        Some((Token::RoBracketE, span)) => {
+                            end = span.end;
+                            break;
+                        },
+                        Some((Token::Comma, _)) => {},
+                        Some((t, span)) => {
+                            self.errs.push((
+                                ParseError::UnexpectedToken {
+                                    expected: Some("comma"),
+                                    found: t.clone(),
+                                },
+                                span.clone(),
+                            )); // intentional no `return None`: error recover
+                        },
+                        None => {
+                            let prev = self.buf.prev().map_or_else(Span::default, |a| a.1.clone());
+                            self.errs.push((ParseError::RanOutTokens, prev));
+                            return None;
+                        },
+                    }
+                }
+
+                match self.buf.peek() {
+                    Some((Token::Ident | Token::Fn | Token::RoBracketS | Token::SqBracketS, _)) => {
+                        let ret = self.parse_type()?;
+                        let end = ret.1.end;
+                        Some((Type::Function(args, Some(Box::new(ret.0))), start..end))
+                    },
+                    _ => Some((Type::Function(args, None), start..end)),
+                }
+            },
+            Some((Token::RoBracketS, span)) => {
+                let start = span.start;
+                let typ = self.parse_type()?;
+                match self.buf.next() {
+                    Some((Token::RoBracketE, span)) => {
+                        Some((typ.0, start..span.end))
+                    },
+                    Some((t, span)) => {
+                        self.errs.push((
+                            ParseError::UnexpectedToken {
+                                expected: None,
+                                found: t.clone(),
+                            },
+                            span.clone(),
+                        ));
+                        None
+                    },
+                    None => {
+                        let prev = self.buf.prev().map_or_else(Span::default, |a| a.1.clone());
+                        self.errs.push((ParseError::RanOutTokens, prev));
                         None
                     },
                 }

@@ -92,6 +92,7 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuiltInType {
+    Bool,
     U8,
     U16,
     U32,
@@ -116,6 +117,7 @@ impl Type {
         use BuiltInType::*;
         use Type::*;
         match s {
+            "bool" => BuiltIn(Bool),
             "u8" => BuiltIn(U8),
             "i8" => BuiltIn(I8),
             "u16" => BuiltIn(U16),
@@ -207,6 +209,7 @@ impl std::fmt::Display for BuiltInType {
             f,
             "{}",
             match self {
+                Bool => "bool",
                 U8 => "u8",
                 I8 => "i8",
                 U16 => "u16",
