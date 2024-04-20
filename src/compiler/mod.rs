@@ -6,6 +6,3 @@ pub mod highlight;
 pub use highlight::*;
 
 pub mod util;
-
-#[cfg(test)]
-mod tests;

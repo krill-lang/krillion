@@ -1,5 +1,6 @@
 use super::*;
 pub use logos::*;
+use std::fmt;
 
 #[derive(Debug, Clone, Logos)]
 #[logos(skip r"\s")]
@@ -12,8 +13,8 @@ pub enum Token {
     #[regex(r"[_a-zA-Z0-9\u0100-\x{fffff}]+", priority = 0)]
     Ident,
 
-    #[token(";")]
-    Semicolon,
+    #[token(";", callback = |_| false)]
+    Semicolon(bool),
 
     #[token("(")]
     RoBracketS,
@@ -35,7 +36,7 @@ pub enum Token {
     Operator(Operator),
 
     #[token("::")]
-    ScopeOf,
+    ModSep,
     #[token(".")]
     Of,
 
@@ -78,8 +79,33 @@ pub enum Token {
     None,
 }
 
-#[derive(Debug, Clone)]
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Integer(_) => write!(f, "integer"),
+            Self::Ident => write!(f, "identifier"),
+            Self::Semicolon(true) => write!(f, "newline"),
+            Self::Semicolon(false) => write!(f, "semicolon"),
+            Self::RoBracketS => write!(f, "start of round bracket"),
+            Self::RoBracketE => write!(f, "end of round bracket"),
+            Self::SqBracketS => write!(f, "start ofsquare bracket"),
+            Self::SqBracketE => write!(f, "end of square bracket"),
+            Self::CuBracketS => write!(f, "start of curly bracket"),
+            Self::CuBracketE => write!(f, "end of curly bracket"),
+            Self::Operator(_) => write!(f, "operator"),
+            Self::ModSep => write!(f, "module qualifier"),
+            Self::Of => write!(f, "dot"),
+            Self::Comma | Self::NewLine | Self::None => {
+                write!(f, "{}", format!("{self:?}").to_lowercase())
+            },
+            _ => write!(f, "`{}`", format!("{self:?}").to_lowercase()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Operator {
+    // binary
     Add,
     Sub,
     Mlt,
@@ -88,7 +114,6 @@ pub enum Operator {
     Assign,
     OpAssign(Box<Operator>),
 
-    RoBracketS,
     Index,
     Eq,
     NE,
@@ -96,48 +121,71 @@ pub enum Operator {
     GE,
     LT,
     LE,
-    BAnd,
-    BOr,
-    BXOr,
+    And,
+    Or,
+    Xor,
     Not,
-    LAnd,
-    LOr,
+    AndAnd,
+    OrOr,
 
     LSh,
     RSh,
-    FnCall(Identifier),
+
+    // unary
+    Plus,
+    Minus,
+    Deref,
+    Ref,
 }
 
 impl Operator {
-    pub const fn percedence(&self, unary: bool) -> usize {
-        use Operator::*;
-        if !unary {
-            match self {
-                Index => 14,
-                RoBracketS | FnCall(_) => 13,
-                Mlt | Div | Mod => 11,
-                Add | Sub => 10,
-                LSh | RSh => 9,
-                LT | LE | GT | GE => 8,
-                Eq | NE => 7,
-                BAnd => 6,
-                BXOr => 5,
-                BOr => 4,
-                LAnd => 3,
-                LOr => 2,
-                Assign | OpAssign(_) => 1,
-                _ => 0,
-            }
-        } else {
-            match self {
-                Add | Sub | Mlt | Not => 12,
-                _ => 0,
-            }
+    pub const fn percedence(&self) -> usize {
+        match self {
+            Self::Plus | Self::Minus | Self::Deref | Self::Ref => 15,
+            Self::Mlt | Self::Div | Self::Mod => 12,
+            Self::Add | Self::Sub => 11,
+            Self::LSh | Self::RSh => 10,
+            Self::LT | Self::LE | Self::GT | Self::GE => 9,
+            Self::Eq | Self::NE => 8,
+            Self::And => 7,
+            Self::Xor => 6,
+            Self::Or => 5,
+            Self::AndAnd => 4,
+            Self::OrOr => 3,
+            Self::Assign | Self::OpAssign(_) => 1,
+            _ => todo!(),
         }
     }
+
     pub const fn is_left(&self) -> bool {
-        use Operator::*;
-        !matches!(self, Assign | OpAssign(_))
+        !matches!(
+            self,
+            Self::Assign | Self::OpAssign(_) | Self::Plus | Self::Minus | Self::Deref | Self::Ref
+        )
+    }
+
+    pub const fn to_unary(&self) -> Option<Self> {
+        match self {
+            Self::Add => Some(Self::Plus),
+            Self::Sub => Some(Self::Minus),
+            Self::Mlt => Some(Self::Deref),
+            Self::And => Some(Self::Ref),
+            _ => None,
+        }
+    }
+
+    pub const fn is_binary(&self) -> bool { !self.is_unary() }
+
+    pub const fn is_unary(&self) -> bool {
+        matches!(self, Self::Plus | Self::Minus | Self::Deref | Self::Ref)
+    }
+
+    pub const fn break_down(&self) -> Option<&'static [Self]> {
+        match self {
+            Self::AndAnd => Some(&[Self::And, Self::And]),
+            Self::OrOr => Some(&[Self::Or, Self::Or]),
+            _ => None,
+        }
     }
 }
 
@@ -163,8 +211,8 @@ fn parse_operator(lex: &Lexer<Token>) -> Operator {
         ">" => GT,
         ">=" => GE,
         "!" => Not,
-        "&&" => LAnd,
-        "||" => LOr,
+        "&&" => AndAnd,
+        "||" => OrOr,
 
         _ => {
             if s.ends_with('=') && s.len() > 1 {
@@ -185,13 +233,13 @@ fn _parse_oper(s: &str) -> Operator {
         "/" => Div,
         "%" => Mod,
         "=" => Assign,
-        "|" => BOr,
-        "&" => BAnd,
-        "^" => BXOr,
+        "|" => Or,
+        "&" => And,
+        "^" => Xor,
         "<<" => LSh,
         ">>" => RSh,
         _ => unreachable!(),
     }
 }
 
-pub type AToken = (Token, Span);
+pub type AToken = Annotated<Token>;

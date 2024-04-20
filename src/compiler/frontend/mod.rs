@@ -7,3 +7,5 @@ pub use preprocess::*;
 pub mod ast;
 pub use super::error::*;
 pub use ast::*;
+
+pub type Annotated<T> = (T, Span);

@@ -14,16 +14,24 @@
     invalid_reference_casting,
     mutable_transmutes
 )]
-#![feature(mem_copy_fn)]
 
 mod compiler;
 use compiler::frontend::*;
 mod args;
-use args::*;
+use args::{Args, Parser};
+mod panic;
 use std::process::exit;
 
 fn main() {
+    panic::init();
+
     let args = Args::parse();
+
+    #[cfg(feature = "unstable")]
+    if let Some(msg) = args.panics {
+        std::panic::panic_any(format!("{msg}"));
+    }
+
     let filename = &args.input;
 
     let src = std::fs::read_to_string(filename).unwrap();
@@ -46,7 +54,7 @@ fn main() {
     let mut pp = unwrap_or_report!(preprocess(&mut buf));
 
     let ast = unwrap_or_report!(parse(&mut pp, &src));
-    println!("root:\n{:?}", AstFormatter(&ast).formatter(1));
-    // let typed = unwrap_or_report!(typecheck(&ast));
-    // println!("{typed:#?}");
+    println!("root:\n{ast:#?}"); // AstFormatter(&ast).formatter(2));
+                                 // let typed = unwrap_or_report!(typecheck(&ast));
+                                 // println!("{typed:#?}");
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::args::*;
+use crate::args::{Args, ErrorStyle};
 use frontend::*;
 use std::fmt::Write;
 use unicode_width::UnicodeWidthStr;
@@ -27,7 +27,7 @@ pub enum Severeness {
 }
 
 impl Severeness {
-    fn as_str(&self, args: &Args) -> &'static str {
+    const fn as_str(&self, args: &Args) -> &'static str {
         match (self, args.alt_color) {
             (Self::Error, false) => "\x1b[1;31mError",
             (Self::Error, true) => "\x1b[1;97mError",
@@ -194,9 +194,9 @@ fn report_single<E: CompilerError>(
                 " ".repeat(chw),
                 " ".repeat(spaces + bef_tabs * 4),
                 "^".repeat(
-                    UnicodeWidthStr::width_cjk(
+                    (UnicodeWidthStr::width_cjk(
                         &ctx.source[span.start.max(start_idx)..span.end.min(end_idx)]
-                    ) + in_tabs * 4
+                    ) + in_tabs * 4).max(1)
                 ),
             )?;
         } else {
@@ -219,19 +219,16 @@ fn report_single<E: CompilerError>(
 #[derive(Debug, Clone)]
 #[allow(clippy::enum_variant_names)]
 pub enum ParseError {
-    UnexpectedToken,
+    UnexpectedToken {
+        expected: Option<&'static str>,
+        found: Token,
+    },
     UnexpectedVisibility,
     UnexpectedLinkage,
-    UnstartedBracket,
     UnendedBracket,
-    UnendedFnCall,
     UnexpectedDelimiter,
     UnendedScope,
-    BracketNotMatch,
-    ExprParseError,
-    RanOutOperands,
     RanOutTokens,
-    ExpectingIdentifier,
 
     YourMom,
 
@@ -241,21 +238,20 @@ pub enum ParseError {
 impl CompilerError for ParseError {
     fn message(&self) -> String {
         match self {
-            Self::UnexpectedToken => "unexpected token".to_string(),
+            Self::UnexpectedToken {
+                expected: Some(expected),
+                found,
+            } => format!("expected {expected}, found {found}"),
+            Self::UnexpectedToken {
+                expected: None,
+                found,
+            } => format!("unexpected {found}"),
             Self::UnexpectedVisibility => "unexpected visibility qualifier".to_string(),
             Self::UnexpectedLinkage => "unexpected linkage specifier".to_string(),
-            Self::UnstartedBracket => {
-                "ending bracket have no matching starting bracket".to_string()
-            },
             Self::UnendedBracket => "starting bracket have no matching ending bracket".to_string(),
-            Self::UnendedFnCall => "function call have no ending bracket".to_string(),
             Self::UnendedScope => "scope is not ended".to_string(),
             Self::UnexpectedDelimiter => "unexpected delimiter".to_string(),
-            Self::BracketNotMatch => "starting bracket does not match ending bracket".to_string(),
-            Self::ExprParseError => "unknown expression parsing error".to_string(),
-            Self::RanOutOperands => "ran out of operands while parsing expression".to_string(),
             Self::RanOutTokens => "ran out of tokens".to_string(),
-            Self::ExpectingIdentifier => "expecting identifier".to_string(),
 
             Self::YourMom => "your mom is waiting you for dinner".to_string(),
 
@@ -265,16 +261,15 @@ impl CompilerError for ParseError {
 
     fn consider(&self) -> Option<String> {
         match self {
-            Self::UnexpectedToken => {
-                Some("add a semicolon to end the current statement".to_string())
-            },
+            // Self::UnexpectedToken => {
+            //     Some("add a semicolon to end the current statement".to_string())
+            // },
             Self::UnexpectedVisibility | Self::UnexpectedLinkage => {
                 Some("remove this token".to_string())
             },
-            Self::UnendedFnCall | Self::UnendedBracket => Some("add a ending bracket".to_string()),
+            Self::UnendedBracket => Some("add a ending bracket".to_string()),
             Self::UnendedScope => Some("add a delimiter `}`".to_string()),
             Self::UnexpectedDelimiter => Some("remove this delimiter".to_string()),
-            Self::UnstartedBracket => Some("add a starting bracket".to_string()),
             Self::YourMom => Some("have dinner".to_string()),
             _ => None,
         }

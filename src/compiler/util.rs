@@ -1,4 +1,4 @@
-use core::mem::{copy, transmute};
+use core::mem::{transmute, transmute_copy};
 
 pub enum MaybeMutable<'a, A> {
     Mutable(&'a mut A),
@@ -9,7 +9,7 @@ impl<'a, A: Clone> MaybeMutable<'a, A> {
     #[allow(clippy::mut_from_ref)]
     pub fn unwrap_mut(&'a self) -> &'a mut A {
         match self {
-            Self::Mutable(ptr) => unsafe { transmute(copy(transmute::<_, &&A>(ptr))) },
+            Self::Mutable(ptr) => unsafe { transmute_copy(transmute::<_, &&A>(ptr)) },
             _ => panic!("called `unwrap_mut()` on immutable reference"),
         }
     }
@@ -44,18 +44,3 @@ impl<'a, A: Display> Display for MaybeMutable<'a, A> {
         }
     }
 }
-
-#[allow(clippy::mut_from_ref)]
-pub unsafe fn as_mut<A>(a: &A) -> &mut A { std::mem::transmute(a) }
-
-#[macro_export]
-macro_rules! wrap_option {
-    ($res: expr, $fail: expr) => {
-        match $res {
-            Some(a) => Ok(a),
-            None => Err($fail),
-        }
-    };
-}
-
-pub use crate::wrap_option;
