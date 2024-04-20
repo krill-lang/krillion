@@ -128,11 +128,6 @@ impl<'a> super::Parser<'a> {
                 }
 
                 Some((Expr::Ident(segs), total_span))
-
-                // Some((
-                //     Expr::Ident(vec![self.src.slice(span.clone()).unwrap().to_string()]),
-                //     span.clone(),
-                // )),
             },
             Some((Token::RoBracketS, Span { start, .. })) => {
                 let start = *start;
