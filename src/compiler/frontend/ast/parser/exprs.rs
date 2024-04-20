@@ -95,7 +95,10 @@ impl<'a> super::Parser<'a> {
             Some((Token::Integer(v), span)) => Some((Expr::Integer(*v as i128), span.clone())),
             Some((Token::Ident, span)) => {
                 let mut total_span = span.clone();
-                let mut segs = vec![(self.src.slice(span.clone()).unwrap().to_string(), span.clone())];
+                let mut segs = vec![(
+                    self.src.slice(span.clone()).unwrap().to_string(),
+                    span.clone(),
+                )];
 
                 while let Some((Token::ModSep, _)) = self.buf.peek() {
                     self.buf.next();
@@ -103,7 +106,10 @@ impl<'a> super::Parser<'a> {
                     match self.buf.next() {
                         Some((Token::Ident, span)) => {
                             total_span.end = span.end;
-                            segs.push((self.src.slice(span.clone()).unwrap().to_string(), span.clone()))
+                            segs.push((
+                                self.src.slice(span.clone()).unwrap().to_string(),
+                                span.clone(),
+                            ))
                         },
                         Some((t, span)) => {
                             self.errs.push((
@@ -161,9 +167,11 @@ impl<'a> super::Parser<'a> {
                 let this = token.unwrap().clone();
                 let op = op.clone();
                 let single_op = &[op.clone()];
-                let mut acc = self.parse_expr_climb(op.percedence())?;
+                let ops = op.break_down().unwrap_or(single_op);
 
-                for op in op.break_down().unwrap_or(single_op).iter() {
+                let mut acc = self.parse_expr_climb(ops[0].to_unary().map_or(0, |a| a.percedence()))?;
+
+                for op in ops.iter() {
                     if let Some(op) = op.to_unary() {
                         let start = span.start;
                         let op = op.clone();

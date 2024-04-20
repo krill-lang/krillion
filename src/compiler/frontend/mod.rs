@@ -8,4 +8,5 @@ pub mod ast;
 pub use super::error::*;
 pub use ast::*;
 
-pub type Annotated<T> = (T, Span);
+pub type Annotation = Span;
+pub type Annotated<T> = (T, Annotation);
