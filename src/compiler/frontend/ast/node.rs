@@ -22,11 +22,11 @@ pub enum Linkage {
 }
 
 #[derive(Debug, Clone)]
-pub enum NodeKind<Expr: std::fmt::Debug + Clone> {
+pub enum NodeKind<Expr: std::fmt::Debug + Clone, ShortIdent: std::fmt::Debug + Clone> {
     VarDeclare {
         vis: Option<(Visibility, Span)>,
         link: Option<(Linkage, Span)>,
-        ident: AString,
+        ident: ShortIdent,
         typ: Option<AType>,
         expr: Option<Expr>,
     },
@@ -39,7 +39,7 @@ pub enum NodeKind<Expr: std::fmt::Debug + Clone> {
     FunctionDeclare {
         vis: Option<(Visibility, Span)>,
         link: Option<(Linkage, Span)>,
-        ident: AString,
+        ident: ShortIdent,
         params: Vec<(AString, AType, Span)>,
         return_type: AType,
         body: Box<Node<Self>>,
@@ -74,7 +74,7 @@ pub enum Expr<Extra: std::fmt::Debug + Clone, Identifier: std::fmt::Debug + Clon
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum Type {
     Pointer(Box<AType>),
     Slice(Box<AType>),
@@ -86,6 +86,8 @@ pub enum Type {
     OneOf(Vec<Type>),
     Any,
     Integer,
+
+    Function(Vec<Type>, Option<Box<Type>>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -150,6 +152,10 @@ impl Type {
     pub fn specificness(&self) -> usize {
         use Type::*;
         match self {
+            Function(args, ret) => {
+                args.iter().fold(0, |a, e| a + e.specificness())
+                    + ret.as_ref().map_or(0, |ret| ret.specificness())
+            },
             OneOf(t) => t.iter().fold(0, |a, e| a + e.specificness()),
             Pointer(t) | Slice(t) | Array(t, _) => t.0.specificness().saturating_sub(1),
             Any => 1000,
@@ -164,8 +170,8 @@ impl std::fmt::Display for Type {
         use Type::*;
         match self {
             Pointer(t) => write!(f, "&{}", t.0),
-            Slice(t) => write!(f, "[]{}", t.0),
-            Array(t, s) => write!(f, "[{}]{}", s.0, t.0),
+            Slice(t) => write!(f, "[{}]", t.0),
+            Array(t, s) => write!(f, "[{} * {}]", t.0, s.0),
             BuiltIn(b) => write!(f, "{b}"),
             Unknown(t) => write!(f, "{t}"),
             OneOf(t) => write!(
@@ -178,6 +184,18 @@ impl std::fmt::Display for Type {
             ),
             Any => write!(f, "_"),
             Integer => write!(f, "{{integer}}"),
+            Function(args, ret) => {
+                write!(f, "(fn(")?;
+                for i in args.iter() {
+                    write!(f, "{i}, ")?;
+                }
+                write!(f, ")")?;
+                if let Some(ret) = ret {
+                    write!(f, "-> {ret}")?;
+                }
+
+                Ok(())
+            },
         }
     }
 }
@@ -210,151 +228,3 @@ impl std::fmt::Display for BuiltInType {
         )
     }
 }
-
-/*
-pub struct AstFormatter<'a, N: DebugDepth>(pub &'a Ast<N>);
-
-impl<'a, N: DebugDepth> DebugDepth for AstFormatter<'a, N> {
-    fn format(&self, f: &mut std::fmt::Formatter, depth: usize) -> std::fmt::Result {
-        for (i, n) in self.0.iter().enumerate() {
-            writeln!(f, "{:│>1$}┬ {i}:", "├", depth)?;
-            n.format(f, depth + 1)?;
-        }
-
-        Ok(())
-    }
-}
-
-pub trait DebugDepth
-where
-    Self: Sized,
-{
-    fn format(&self, f: &mut std::fmt::Formatter, depth: usize) -> std::fmt::Result;
-
-    fn formatter(&self, depth: usize) -> Formatter<'_, Self> { Formatter { depth, inner: self } }
-}
-
-pub struct Formatter<'a, I: DebugDepth> {
-    depth: usize,
-    inner: &'a I,
-}
-
-impl<'a, I: DebugDepth> std::fmt::Debug for Formatter<'a, I> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.inner.format(f, self.depth)
-    }
-}
-
-impl<K: DebugDepth> DebugDepth for Node<K> {
-    fn format(&self, f: &mut std::fmt::Formatter, depth: usize) -> std::fmt::Result {
-        writeln!(f, "{:│>1$}┬ kind:", "├", depth)?;
-        self.kind.format(f, depth + 1)?;
-        writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth, self.span)?;
-        writeln!(f, "{:│>1$}─ extra: {2:?}", "├", depth, self.extra)?;
-
-        Ok(())
-    }
-}
-
-impl<E: std::fmt::Debug + Clone> DebugDepth for NodeKind<E> {
-    fn format(&self, f: &mut std::fmt::Formatter, depth: usize) -> std::fmt::Result {
-        match self {
-            Self::VarDeclare {
-                vis,
-                link,
-                ident,
-                typ,
-                expr,
-            } => {
-                writeln!(f, "{:│>1$}┬ let:", "├", depth)?;
-                if let Some((vis, span)) = vis {
-                    writeln!(f, "{:│>1$}┬ vis: {vis:?}", "├", depth + 1)?;
-                    writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 2)?;
-                }
-                if let Some((link, span)) = link {
-                    writeln!(f, "{:│>1$}┬ link: {link:?}", "├", depth + 1)?;
-                    writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 2)?;
-                }
-                writeln!(f, "{:│>1$}─ ident: {ident:?}", "├", depth + 1)?;
-                if let Some((typ, span)) = typ {
-                    writeln!(f, "{:│>1$}┬ type: {typ}", "├", depth + 1)?;
-                    writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 2)?;
-                }
-                if let Some(expr) = expr {
-                    writeln!(f, "{:│>1$}─ expr: {expr:?}", "├", depth + 1)?;
-                }
-            },
-            Self::Return(Some(rt)) => writeln!(f, "{:│>1$}─ return: {rt:?}", "├", depth)?,
-            Self::Return(None) => writeln!(f, "{:│>1$}─ return", "├", depth)?,
-            Self::Expr(expr) => writeln!(f, "{:│>1$}─ expr: {expr:?}", "├", depth)?,
-            Self::Scope { body, span } => {
-                writeln!(f, "{:│>1$}┬ scope:", "├", depth)?;
-                writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 1)?;
-                writeln!(f, "{:│>1$}┬ body:", "├", depth + 1)?;
-                AstFormatter(body).format(f, depth + 2)?;
-            },
-            Self::FunctionDeclare {
-                vis,
-                link,
-                ident,
-                params,
-                return_type,
-                body,
-                span,
-            } => {
-                writeln!(f, "{:│>1$}┬ fn:", "├", depth)?;
-                if let Some((vis, span)) = vis {
-                    writeln!(f, "{:│>1$}┬ vis: {vis:?}", "├", depth + 1)?;
-                    writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 2)?;
-                }
-                if let Some((link, span)) = link {
-                    writeln!(f, "{:│>1$}┬ link: {link:?}", "├", depth + 1)?;
-                    writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 2)?;
-                }
-                writeln!(f, "{:│>1$}─ ident: {ident:?}", "├", depth + 1)?;
-                writeln!(f, "{:│>1$}┬ params:", "├", depth + 1)?;
-                for (i, p) in params.iter().enumerate() {
-                    writeln!(f, "{:│>1$}┬ {i}:", "├", depth + 2)?;
-                    writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 3, p.2)?;
-                    writeln!(f, "{:│>1$}┬ ident: {2}", "├", depth + 3, p.0 .0)?;
-                    writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 4, p.0 .1)?;
-                    writeln!(f, "{:│>1$}┬ type: {2}", "├", depth + 3, p.1 .0)?;
-                    writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 4, p.1 .1)?;
-                }
-                writeln!(
-                    f,
-                    "{:│>1$}┬ return_type: {2}",
-                    "├",
-                    depth + 1,
-                    return_type.0
-                )?;
-                writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 2, return_type.1)?;
-                writeln!(f, "{:│>1$}─ span: {span:?}", "├", depth + 1)?;
-                writeln!(f, "{:│>1$}┬ body:", "├", depth + 1)?;
-                body.format(f, depth + 2)?;
-            },
-            Self::If { main, els } => {
-                writeln!(f, "{:│>1$}┬ if:", "├", depth)?;
-                writeln!(f, "{:│>1$}┬ main:", "├", depth + 1)?;
-                writeln!(f, "{:│>1$}─ expr: {2:?}", "├", depth + 2, main.0)?;
-                writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 2, main.2)?;
-                writeln!(f, "{:│>1$}┬ body:", "├", depth + 2)?;
-                main.1.format(f, depth + 3)?;
-                if let Some(els) = els {
-                    writeln!(f, "{:│>1$}┬ else:", "├", depth + 1)?;
-                    writeln!(f, "{:│>1$}─ span: {2:?}", "├", depth + 2, els.1)?;
-                    writeln!(f, "{:│>1$}┬ body:", "├", depth + 2)?;
-                    els.0.format(f, depth + 3)?;
-                }
-            },
-            Self::While { cond, body } => {
-                writeln!(f, "{:│>1$}┬ while:", "├", depth)?;
-                writeln!(f, "{:│>1$}─ cond: {cond:?}", "├", depth + 1)?;
-                writeln!(f, "{:│>1$}┬ body:", "├", depth + 1)?;
-                body.format(f, depth + 2)?;
-            },
-        }
-
-        Ok(())
-    }
-}*/

@@ -169,7 +169,8 @@ impl<'a> super::Parser<'a> {
                 let single_op = &[op.clone()];
                 let ops = op.break_down().unwrap_or(single_op);
 
-                let mut acc = self.parse_expr_climb(ops[0].to_unary().map_or(0, |a| a.percedence()))?;
+                let mut acc =
+                    self.parse_expr_climb(ops[0].to_unary().map_or(0, |a| a.percedence()))?;
 
                 for op in ops.iter() {
                     if let Some(op) = op.to_unary() {

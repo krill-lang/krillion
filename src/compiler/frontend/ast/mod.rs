@@ -7,8 +7,8 @@ pub use node::*;
 pub use parser::nodes::parse;
 pub mod numerator;
 pub use numerator::*;
-// pub mod typecheck;
-// pub use typecheck::*;
+pub mod typecheck;
+pub use typecheck::*;
 
 pub type Ident<S> = Vec<S>;
 
@@ -24,10 +24,10 @@ pub type NIdent = Numerated<Ident<AString>>;
 
 pub type Ast<Kind> = Vec<Node<Kind>>;
 pub type UntypedAst = Ast<UntypedNode>;
-pub type UntypedNode = NodeKind<AExpr>;
+pub type UntypedNode = NodeKind<AExpr, AString>;
 
 pub type NumeratedAst = Ast<NumeratedNode>;
-pub type NumeratedNode = NodeKind<NExpr>;
+pub type NumeratedNode = NodeKind<NExpr, NString>;
 
 pub type TypedAst = Ast<TypedNode>;
-pub type TypedNode = NodeKind<(AExpr, Type)>;
+pub type TypedNode = NodeKind<(AExpr, Type), NString>;

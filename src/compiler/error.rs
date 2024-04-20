@@ -261,9 +261,6 @@ impl CompilerError for ParseError {
 
     fn consider(&self) -> Option<String> {
         match self {
-            // Self::UnexpectedToken => {
-            //     Some("add a semicolon to end the current statement".to_string())
-            // },
             Self::UnexpectedVisibility | Self::UnexpectedLinkage => {
                 Some("remove this token".to_string())
             },
