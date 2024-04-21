@@ -1,1 +1,1 @@
-let a (fn(u32, bool) (fn(bool)))
+let a bool = 1

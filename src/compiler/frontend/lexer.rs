@@ -8,9 +8,9 @@ use std::fmt;
 #[logos(skip r"[^\\]?\\\n")]
 #[logos(skip r"/\*([^*]|\*[^/])*\*/")]
 pub enum Token {
-    #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)", callback = parse_int)]
+    #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)", priority = 10, callback = parse_int)]
     Integer(u128),
-    #[regex(r"[_a-zA-Z0-9\u0100-\x{fffff}]+", priority = 0)]
+    #[regex(r"[_a-zA-Z0-9\u0100-\x{fffff}]+", priority = 2)]
     Ident,
 
     #[token(";", callback = |_| false)]

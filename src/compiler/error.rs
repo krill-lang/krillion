@@ -307,39 +307,40 @@ impl CompilerError for NumerateError {
     fn severeness(&self) -> Severeness { Severeness::Error }
 }
 
-/*
 #[derive(Debug, Clone)]
 pub enum TypeCheckError {
     UnresolvedType,
     TypeMismatch { expected: Type, found: Type },
     GlobalNode,
     UnknownIdent,
-    FnArgCountNotMatch { expected: usize, found: usize },
-}
-
-impl std::fmt::Display for TypeCheckError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::UnresolvedType => write!(f, "unable to resolve type for expression"),
-            Self::TypeMismatch {
-                expected, found
-            } => write!(f, "mismatched types (expecting `{expected}`, found `{found}`)"),
-            Self::GlobalNode => write!(f, "unsupported statement in global scope"),
-            Self::UnknownIdent => write!(f, "unknown identifier"),
-            Self::FnArgCountNotMatch {
-                expected, found
-            } => write!(f, "function call argument count does not match definition argument count (expecting {expected}, found {found})"),
-        }
-    }
+    // FnArgCountNotMatch { expected: usize, found: usize },
 }
 
 impl CompilerError for TypeCheckError {
-    fn consider(&self, _ctx: &ErrorContext<'_>, _span: Span) -> Option<String> {
+    fn message(&self) -> String {
+        match self {
+            Self::UnresolvedType => "unable to resolve type for expression".to_string(),
+            Self::TypeMismatch {
+                expected, found
+            } => format!("mismatched types (expecting `{expected}`, found `{found}`)"),
+            Self::GlobalNode => "unsupported statement in global scope".to_string(),
+            Self::UnknownIdent => "unknown identifier".to_string(),
+            // Self::FnArgCountNotMatch {
+            //     expected, found
+            // } => format!("function call argument count does not match definition argument count (expecting {expected}, found {found})"),
+        }
+    }
+
+    fn consider(&self) -> Option<String> {
         match self {
             Self::UnresolvedType => Some("specify the type of the variable".to_string()),
             _ => None,
         }
     }
-}
 
-*/
+    fn severeness(&self) -> Severeness {
+        match self {
+            _ => Severeness::Error,
+        }
+    }
+}

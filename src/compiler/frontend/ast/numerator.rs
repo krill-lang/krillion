@@ -13,20 +13,20 @@ struct Numerator {
     index: usize,
 }
 
-pub fn numerate(ast: UntypedAst) -> (NumeratedAst, Errors) {
+pub fn numerate(ast: UntypedAst) -> ((NumeratedAst, usize), Errors) {
     let mut numerator = Numerator {
         errs: Vec::new(),
         index: 0,
     };
 
-    (numerator.numerate(ast, HashMap::new()), numerator.errs)
+    ((numerator.numerate(ast, HashMap::new()), numerator.index), numerator.errs)
 }
 
 impl Numerator {
     fn numerate(
         &mut self,
         ast: UntypedAst,
-        mut idents: HashMap<Ident<String>, usize>,
+        mut idents: HashMap<String, usize>,
     ) -> NumeratedAst {
         self.resolve_globals(&ast, &mut idents);
 
@@ -47,7 +47,7 @@ impl Numerator {
                     expr,
                 } => {
                     let id = self.assign();
-                    idents.insert(vec![ident.0.clone()], id);
+                    idents.insert(ident.0.clone(), id);
 
                     new.push(Node {
                         kind: NodeKind::VarDeclare {
@@ -80,19 +80,27 @@ impl Numerator {
                         _ => unreachable!(),
                     };
 
-                    let long_ident = vec![ident.0.clone()];
+                    let mut new_params = Vec::with_capacity(params.len());
+                    let mut inner_idents = idents.clone();
+                    for p in params.into_iter() {
+                        let p_id = self.assign();
+                        new_params.push(((p.0.0.clone(), (p.0.1, p_id)), p.1, p.2));
+                        inner_idents.insert(p.0.0, p_id);
+                    }
+
+                    let ident_id = *idents.get(&ident.0).unwrap();
 
                     new.push(Node {
                         kind: NodeKind::FunctionDeclare {
                             vis,
                             link,
-                            ident: (ident.0, (ident.1, *idents.get(&long_ident).unwrap())),
-                            params,
+                            ident: (ident.0, (ident.1, ident_id)),
+                            params: new_params,
                             return_type,
                             span,
                             body: Box::new(Node {
                                 kind: NodeKind::Scope {
-                                    body: self.numerate(kb, idents.clone()),
+                                    body: self.numerate(kb, inner_idents),
                                     span: ks,
                                 },
                                 span: body.span,
@@ -191,18 +199,18 @@ impl Numerator {
         new
     }
 
-    fn resolve_globals(&mut self, ast: &UntypedAst, idents: &mut HashMap<Ident<String>, usize>) {
+    fn resolve_globals(&mut self, ast: &UntypedAst, idents: &mut HashMap<String, usize>) {
         for n in ast.iter() {
             match &n.kind {
                 NodeKind::FunctionDeclare { ident, .. } => {
-                    idents.insert(vec![ident.0.clone()], self.assign());
+                    idents.insert(ident.0.clone(), self.assign());
                 },
                 _ => {},
             }
         }
     }
 
-    fn numerate_expr(&mut self, expr: AExpr, idents: &HashMap<Ident<String>, usize>) -> NExpr {
+    fn numerate_expr(&mut self, expr: AExpr, idents: &HashMap<String, usize>) -> NExpr {
         match expr.0 {
             Expr::Integer(int) => (Expr::Integer(int), (expr.1, self.assign())),
             Expr::Ident(id) => (
@@ -241,16 +249,20 @@ impl Numerator {
         &mut self,
         ident: AIdent,
         span: &Span,
-        idents: &HashMap<Ident<String>, usize>,
+        idents: &HashMap<String, usize>,
     ) -> NIdent {
-        let id = *idents
-            .get(&ident.iter().map(|a| a.0.clone()).collect::<Ident<String>>())
-            .unwrap_or_else(|| {
-                self.errs.push((NumerateError::NameUndefined, span.clone()));
-                &0
-            });
+        if ident.len() == 1 {
+            let id = *idents
+                .get(&ident[0].0)
+                .unwrap_or_else(|| {
+                    self.errs.push((NumerateError::NameUndefined, span.clone()));
+                    &0
+                });
 
-        (ident, id)
+            (ident, id)
+        } else {
+            todo!()
+        }
     }
 
     fn assign(&mut self) -> usize {

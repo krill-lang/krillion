@@ -40,7 +40,7 @@ pub enum NodeKind<Expr: std::fmt::Debug + Clone, ShortIdent: std::fmt::Debug + C
         vis: Option<(Visibility, Span)>,
         link: Option<(Linkage, Span)>,
         ident: ShortIdent,
-        params: Vec<(AString, AType, Span)>,
+        params: Vec<(ShortIdent, AType, Span)>,
         return_type: AType,
         body: Box<Node<Self>>,
         span: Span,
@@ -83,7 +83,6 @@ pub enum Type {
     BuiltIn(BuiltInType),
     Unknown(String),
 
-    OneOf(Vec<Type>),
     Any,
     Integer,
 
@@ -110,6 +109,26 @@ pub enum BuiltInType {
     Str,
     Char,
     Unit,
+}
+
+impl std::cmp::PartialEq for Type {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Pointer(l), Self::Pointer(r)) => l == r,
+            (Self::Slice(l), Self::Slice(r)) => l == r,
+            (Self::Array(lt, ls), Self::Array(rt, rs)) => ls.0 == rs.0 && lt == rt,
+
+            (Self::BuiltIn(l), Self::BuiltIn(r)) => l == r,
+            (Self::Unknown(l), Self::Unknown(r)) => l == r,
+
+            (Self::Any, Self::Any) => true,
+            (Self::Integer, Self::Integer) => true,
+
+            (Self::Function(la, lr), Self::Function(ra, rr)) => lr == rr && la == ra,
+
+            _ => false,
+        }
+    }
 }
 
 impl Type {
@@ -146,24 +165,39 @@ impl Type {
             Any
             | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128 | Int | Uint)
             | Integer => true,
-            OneOf(t) => t.iter().any(|e| e.is_integer()),
             _ => false,
         }
     }
 
     pub fn specificness(&self) -> usize {
-        use Type::*;
         match self {
-            Function(args, ret) => {
-                args.iter().fold(0, |a, e| a + e.specificness())
-                    + ret.as_ref().map_or(0, |ret| ret.specificness())
-            },
-            OneOf(t) => t.iter().fold(0, |a, e| a + e.specificness()),
-            Pointer(t) | Slice(t) | Array(t, _) => t.0.specificness().saturating_sub(1),
-            Any => 1000,
-            Integer => 12,
+            Self::Pointer(t) | Self::Slice(t) | Self::Array(t, _) => t.0.specificness().saturating_sub(1),
+            Self::Any => 1000,
+            Self::Integer => 12,
             _ => 1,
         }
+    }
+
+    pub fn constrain(self, other: Type) -> Result<Type, TypeCheckError> {
+        let l_any = matches!(self, Type::Any);
+        let r_any = matches!(other, Type::Any);
+        let l_eq_r = self == other;
+
+        if l_any || r_any || l_eq_r {
+            return Ok(other);
+        }
+
+        let l_anyint = matches!(self, Type::Integer);
+        let r_anyint = matches!(other, Type::Integer);
+        if l_anyint && other.is_integer() || r_anyint && self.is_integer() {
+            return Ok(if self.specificness() > other.specificness() {
+                self
+            } else {
+                other
+            })
+        }
+
+        Err(TypeCheckError::TypeMismatch { expected: self, found: other })
     }
 }
 
@@ -176,22 +210,10 @@ impl std::fmt::Display for Type {
             Array(t, s) => write!(f, "[{} * {}]", t.0, s.0),
             BuiltIn(b) => write!(f, "{b}"),
             Unknown(t) => write!(f, "{t}"),
-            OneOf(t) => write!(
-                f,
-                "({})",
-                t.iter()
-                    .map(|t| format!("{t}"))
-                    .collect::<Vec<_>>()
-                    .join(" | ")
-            ),
             Any => write!(f, "_"),
             Integer => write!(f, "{{integer}}"),
             Function(args, ret) => {
-                write!(f, "(fn(")?;
-                for i in args.iter() {
-                    write!(f, "{i}, ")?;
-                }
-                write!(f, ")")?;
+                write!(f, "(fn({})", args.iter().map(|a| a.to_string()).collect::<Vec<String>>().join(","))?;
                 if let Some(ret) = ret {
                     write!(f, "-> {ret}")?;
                 }

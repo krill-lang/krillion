@@ -54,8 +54,11 @@ fn main() {
     let mut pp = unwrap_or_report!(preprocess(&mut buf));
 
     let ast = unwrap_or_report!(parse(&mut pp, &src));
-    println!("root:\n{ast:#?}");
+    println!("{ast:#?}");
 
-    let nast = unwrap_or_report!(numerate(ast));
+    let (nast, ncnt) = unwrap_or_report!(numerate(ast));
     println!("{nast:#?}");
+
+    let types = unwrap_or_report!(typecheck(&nast, ncnt));
+    println!("{types:#?}");
 }
