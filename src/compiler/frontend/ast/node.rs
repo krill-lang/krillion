@@ -189,7 +189,7 @@ impl Type {
 
         let l_anyint = matches!(self, Type::Integer);
         let r_anyint = matches!(other, Type::Integer);
-        if l_anyint && other.is_integer() || r_anyint && self.is_integer() {
+        if (l_anyint && other.is_integer()) || (r_anyint && self.is_integer()) {
             return Ok(if self.specificness() > other.specificness() {
                 self
             } else {
