@@ -313,7 +313,7 @@ pub enum TypeCheckError {
     TypeMismatch { expected: Type, found: Type },
     GlobalNode,
     UnknownIdent,
-    // FnArgCountNotMatch { expected: usize, found: usize },
+    RequiredBecauseOf,
 }
 
 impl CompilerError for TypeCheckError {
@@ -325,9 +325,7 @@ impl CompilerError for TypeCheckError {
             } => format!("mismatched types (expecting `{expected}`, found `{found}`)"),
             Self::GlobalNode => "unsupported statement in global scope".to_string(),
             Self::UnknownIdent => "unknown identifier".to_string(),
-            // Self::FnArgCountNotMatch {
-            //     expected, found
-            // } => format!("function call argument count does not match definition argument count (expecting {expected}, found {found})"),
+            Self::RequiredBecauseOf => "this type is required because of this".to_string(),
         }
     }
 
@@ -340,6 +338,7 @@ impl CompilerError for TypeCheckError {
 
     fn severeness(&self) -> Severeness {
         match self {
+            Self::RequiredBecauseOf => Severeness::Info,
             _ => Severeness::Error,
         }
     }

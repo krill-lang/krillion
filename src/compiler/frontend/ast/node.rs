@@ -62,11 +62,11 @@ pub enum Expr<Extra: std::fmt::Debug + Clone, Identifier: std::fmt::Debug + Clon
     BiOp {
         lhs: Box<(Self, Extra)>,
         rhs: Box<(Self, Extra)>,
-        op: Box<Operator>,
+        op: Operator,
     },
     UnOp {
         opr: Box<(Self, Extra)>,
-        op: Box<Operator>,
+        op: Operator,
     },
     FnCall {
         id: Box<(Self, Extra)>,
@@ -85,8 +85,11 @@ pub enum Type {
 
     Any,
     Integer,
+    UnsignedInteger,
 
     Function(Vec<Type>, Option<Box<Type>>),
+
+    LValue(Box<Type>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,18 +117,20 @@ pub enum BuiltInType {
 impl std::cmp::PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Pointer(l), Self::Pointer(r)) => l == r,
-            (Self::Slice(l), Self::Slice(r)) => l == r,
-            (Self::Array(lt, ls), Self::Array(rt, rs)) => ls.0 == rs.0 && lt == rt,
+            (Self::Pointer(l), Self::Pointer(r)) => l.0 == r.0,
+            (Self::Slice(l), Self::Slice(r)) => l.0 == r.0,
+            (Self::Array(lt, ls), Self::Array(rt, rs)) => ls.0 == rs.0 && lt.0 == rt.0,
 
             (Self::BuiltIn(l), Self::BuiltIn(r)) => l == r,
             (Self::Unknown(l), Self::Unknown(r)) => l == r,
 
             (Self::Any, Self::Any) => true,
             (Self::Integer, Self::Integer) => true,
+            (Self::UnsignedInteger, Self::UnsignedInteger) => true,
 
             (Self::Function(la, lr), Self::Function(ra, rr)) => lr == rr && la == ra,
 
+            (Self::LValue(l), Self::LValue(r)) => l == r,
             _ => false,
         }
     }
@@ -164,7 +169,7 @@ impl Type {
         match self {
             Any
             | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128 | Int | Uint)
-            | Integer => true,
+            | Integer | UnsignedInteger => true,
             _ => false,
         }
     }
@@ -174,30 +179,40 @@ impl Type {
             Self::Pointer(t) | Self::Slice(t) | Self::Array(t, _) => t.0.specificness().saturating_sub(1),
             Self::Any => 1000,
             Self::Integer => 12,
+            Self::UnsignedInteger => 6,
             _ => 1,
         }
     }
 
-    pub fn constrain(self, other: Type) -> Result<Type, TypeCheckError> {
-        let l_any = matches!(self, Type::Any);
-        let r_any = matches!(other, Type::Any);
-        let l_eq_r = self == other;
+    pub fn constrain(&self, other: &Type) -> Result<Type, TypeCheckError> {
+        if self == other {
+            return Ok(other.clone());
+        }
 
-        if l_any || r_any || l_eq_r {
-            return Ok(other);
+        match (self, other) {
+            (Self::Any, _) => return Ok(other.clone()),
+            (_, Self::Any) => return Ok(self.clone()),
+            (Self::LValue(t), _) => return t.constrain(other),
+            (_, Self::LValue(t)) => return self.constrain(t),
+            (Self::Pointer(l), Self::Pointer(r)) => return l.0.constrain(&r.0),
+            (Self::Slice(l), Self::Slice(r)) => return l.0.constrain(&r.0),
+            (Self::Array(l, ls), Self::Array(r, rs)) if ls == rs => return l.0.constrain(&r.0),
+            _ => {},
         }
 
         let l_anyint = matches!(self, Type::Integer);
         let r_anyint = matches!(other, Type::Integer);
         if (l_anyint && other.is_integer()) || (r_anyint && self.is_integer()) {
-            return Ok(if self.specificness() > other.specificness() {
-                self
+            return Ok(if self.specificness() < other.specificness() {
+                self.clone()
             } else {
-                other
+                other.clone()
             })
         }
 
-        Err(TypeCheckError::TypeMismatch { expected: self, found: other })
+        // TODO: check unsigned
+
+        Err(TypeCheckError::TypeMismatch { expected: self.clone(), found: other.clone() })
     }
 }
 
@@ -212,6 +227,7 @@ impl std::fmt::Display for Type {
             Unknown(t) => write!(f, "{t}"),
             Any => write!(f, "_"),
             Integer => write!(f, "{{integer}}"),
+            UnsignedInteger => write!(f, "{{unsigned integer}}"),
             Function(args, ret) => {
                 write!(f, "(fn({})", args.iter().map(|a| a.to_string()).collect::<Vec<String>>().join(","))?;
                 if let Some(ret) = ret {
@@ -220,6 +236,7 @@ impl std::fmt::Display for Type {
 
                 Ok(())
             },
+            LValue(t) => write!(f, "lvalue {t}"),
         }
     }
 }

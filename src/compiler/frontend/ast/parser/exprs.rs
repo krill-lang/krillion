@@ -1,5 +1,22 @@
 use super::*;
 
+fn rev_insert(e: &mut AExpr, i: AExpr, op: Operator) {
+    let end = i.1.end;
+
+    match &mut e.0 {
+        Expr::BiOp { op: op2, .. } if op != *op2 => {
+            e.0 = Expr::BiOp { lhs: Box::new(e.clone()), rhs: Box::new(i), op };
+        },
+        Expr::BiOp { rhs, .. } => rev_insert(rhs, i, op),
+        _ => {
+            e.0 = Expr::BiOp { lhs: Box::new(e.clone()), rhs: Box::new(i), op };
+        },
+    }
+
+    e.1.end = end;
+}
+
+
 impl<'a> super::Parser<'a> {
     // https://www.engr.mun.ca/~theo/Misc/exp_parsing.htm#climbing
     #[inline(always)]
@@ -23,10 +40,12 @@ impl<'a> super::Parser<'a> {
                             Expr::BiOp {
                                 lhs: Box::new(rest),
                                 rhs: Box::new(right),
-                                op: Box::new(op),
+                                op,
                             },
                             Span { start, end },
                         );
+                    } else {
+                        rev_insert(&mut rest, right, op);
                     }
                 },
                 Token::RoBracketS => {
@@ -74,7 +93,7 @@ impl<'a> super::Parser<'a> {
                         Expr::BiOp {
                             lhs: Box::new(rest),
                             rhs: Box::new(idx),
-                            op: Box::new(Operator::Index),
+                            op: Operator::Index,
                         },
                         Span { start, end },
                     );
@@ -180,7 +199,7 @@ impl<'a> super::Parser<'a> {
                         acc = (
                             Expr::UnOp {
                                 opr: Box::new(acc),
-                                op: Box::new(op),
+                                op,
                             },
                             Span { start, end },
                         );

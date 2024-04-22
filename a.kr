@@ -1,1 +1,5 @@
-let a bool = 1
+let a
+let b = 0
+a = b
+let u8 u8
+b = u8
