@@ -26,9 +26,10 @@ impl Typechecker {
     fn constrain(&mut self, id: usize, t: AType) {
         let int = self.types[id].0.constrain(&t.0);
         if let Ok(int) = int {
-            match &mut self.types[id].0 {
-                Type::LValue(t) => **t = int,
-                t => *t = int,
+            match (&mut self.types[id].0, int) {
+                (Type::LValue(t), Type::LValue(n)) => **t = *n,
+                (Type::LValue(t), n) => **t = n,
+                (t, n) => *t = n,
             }
         } else {
             self.errs.push((int.unwrap_err(), t.1));
