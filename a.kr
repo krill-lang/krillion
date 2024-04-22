@@ -1,5 +1,9 @@
-let a
-let b = 0
+// let a
+// let b
+// let u8 u8
+// a = b
+// b = u8
+
+let a u8
+let b
 a = b
-let u8 u8
-b = u8

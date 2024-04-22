@@ -82,8 +82,8 @@ impl Typechecker {
         match &expr.0 {
             Expr::Integer(_) => self.constrain(expr.1.1, (Type::Integer, expr.1.0.clone())),
             Expr::Ident(id) => {
-                self.constrain(id.1, self.types[expr.1.1].clone());
                 self.constrain(expr.1.1, self.types[id.1].clone());
+                self.constrain(id.1, self.types[expr.1.1].clone());
                 self.lvalue(expr.1.1);
             },
             Expr::UnOp { op: Operator::Deref, opr } => self.typecheck_expr(opr, Some((Type::Pointer(Box::new(self.types[expr.1.1].clone())), expr.1.0.clone()))),
@@ -100,14 +100,9 @@ impl Typechecker {
                 self.constrain(expr.1.1, self.types[opr.1.1].clone());
             },
             Expr::BiOp { lhs, rhs, op: Operator::Assign | Operator::OpAssign(_) } => {
-                /*
                 self.typecheck_expr(&lhs, Some(self.types[rhs.1.1].clone()));
                 self.typecheck_expr(&rhs, Some(self.types[lhs.1.1].clone()));
-                */
-                self.typecheck_expr(&lhs, None);
-                self.typecheck_expr(&rhs, None);
-                self.constrain(lhs.1.1, self.types[rhs.1.1].clone());
-                self.constrain(rhs.1.1, self.types[lhs.1.1].clone());
+                self.typecheck_expr(&lhs, Some(self.types[rhs.1.1].clone()));
 
                 self.is_lvalue(lhs.1.1, &lhs.1.0);
                 self.constrain(expr.1.1, (Type::BuiltIn(BuiltInType::Unit), expr.1.0.clone()));
