@@ -144,7 +144,7 @@ impl<'a> Parser<'a> {
                         },
                     }
 
-                    args.push(self.parse_type()?.0);
+                    args.push(self.parse_type()?);
 
                     match self.buf.next() {
                         Some((Token::RoBracketE, span)) => {
@@ -173,9 +173,9 @@ impl<'a> Parser<'a> {
                     Some((Token::Ident | Token::Fn | Token::RoBracketS | Token::SqBracketS, _)) => {
                         let ret = self.parse_type()?;
                         let end = ret.1.end;
-                        Some((Type::Function(args, Some(Box::new(ret.0))), start..end))
+                        Some((Type::Function(args, Box::new(ret)), start..end))
                     },
-                    _ => Some((Type::Function(args, None), start..end)),
+                    _ => Some((Type::Function(args, Box::new((Type::BuiltIn(BuiltInType::Unit), start..end))), start..end)),
                 }
             },
             Some((Token::RoBracketS, span)) => {

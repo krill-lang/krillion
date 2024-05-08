@@ -79,17 +79,12 @@ pub enum Type {
     Pointer(Box<AType>),
     Slice(Box<AType>),
     Array(Box<AType>, Annotated<u128>),
+    Function(Vec<AType>, Box<AType>),
 
     BuiltIn(BuiltInType),
     Unknown(String),
 
     Any,
-    Integer,
-    UnsignedInteger,
-
-    Function(Vec<Type>, Option<Box<Type>>),
-
-    LValue(Box<Type>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -114,33 +109,12 @@ pub enum BuiltInType {
     Unit,
 }
 
-impl std::cmp::PartialEq for Type {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Pointer(l), Self::Pointer(r)) => l.0 == r.0,
-            (Self::Slice(l), Self::Slice(r)) => l.0 == r.0,
-            (Self::Array(lt, ls), Self::Array(rt, rs)) => ls.0 == rs.0 && lt.0 == rt.0,
-
-            (Self::BuiltIn(l), Self::BuiltIn(r)) => l == r,
-            (Self::Unknown(l), Self::Unknown(r)) => l == r,
-
-            (Self::Any, Self::Any) => true,
-            (Self::Integer, Self::Integer) => true,
-            (Self::UnsignedInteger, Self::UnsignedInteger) => true,
-
-            (Self::Function(la, lr), Self::Function(ra, rr)) => lr == rr && la == ra,
-
-            (Self::LValue(l), Self::LValue(r)) => l == r,
-            _ => false,
-        }
-    }
-}
-
 impl Type {
     pub fn from_str(s: &str) -> Self {
         use BuiltInType::*;
         use Type::*;
         match s {
+            "_" => Any,
             "bool" => BuiltIn(Bool),
             "u8" => BuiltIn(U8),
             "i8" => BuiltIn(I8),
@@ -163,9 +137,10 @@ impl Type {
         }
     }
 
+    /*
     pub fn is_integer(&self) -> bool {
         use BuiltInType::*;
-        use Type::*;
+        use TypeKind::*;
         match self {
             Any
             | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128 | Int | Uint)
@@ -184,7 +159,7 @@ impl Type {
         }
     }
 
-    pub fn constrain(&self, other: &Type) -> Result<Type, TypeCheckError> {
+    pub fn constrain(&self, other: &TypeKind) -> Result<TypeKind, TypeCheckError> {
         if self == other {
             return Ok(other.clone());
         }
@@ -200,8 +175,8 @@ impl Type {
             _ => {},
         }
 
-        let l_anyint = matches!(self, Type::Integer);
-        let r_anyint = matches!(other, Type::Integer);
+        let l_anyint = matches!(self, TypeKind::Integer);
+        let r_anyint = matches!(other, TypeKind::Integer);
         if (l_anyint && other.is_integer()) || (r_anyint && self.is_integer()) {
             return Ok(if self.specificness() < other.specificness() {
                 self.clone()
@@ -214,6 +189,7 @@ impl Type {
 
         Err(TypeCheckError::TypeMismatch { expected: self.clone(), found: other.clone() })
     }
+    */
 }
 
 impl std::fmt::Display for Type {
@@ -226,17 +202,11 @@ impl std::fmt::Display for Type {
             BuiltIn(b) => write!(f, "{b}"),
             Unknown(t) => write!(f, "{t}"),
             Any => write!(f, "_"),
-            Integer => write!(f, "{{integer}}"),
-            UnsignedInteger => write!(f, "{{unsigned integer}}"),
             Function(args, ret) => {
-                write!(f, "(fn({})", args.iter().map(|a| a.to_string()).collect::<Vec<String>>().join(","))?;
-                if let Some(ret) = ret {
-                    write!(f, "-> {ret}")?;
-                }
+                write!(f, "(fn({}) -> {}", args.iter().map(|a| a.0.to_string()).collect::<Vec<String>>().join(","), ret.0)?;
 
                 Ok(())
             },
-            LValue(t) => write!(f, "lvalue {t}"),
         }
     }
 }

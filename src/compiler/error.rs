@@ -310,8 +310,8 @@ impl CompilerError for NumerateError {
 #[derive(Debug, Clone)]
 pub enum TypeCheckError {
     UnresolvedType,
-    TypeMismatch { expected: Type, found: Type },
-    GlobalNode,
+    TypeMismatch { expected: CheckingBaseType, found: CheckingBaseType },
+    ExpectedLvalue,
     UnknownIdent,
     RequiredBecauseOf,
 }
@@ -323,7 +323,7 @@ impl CompilerError for TypeCheckError {
             Self::TypeMismatch {
                 expected, found
             } => format!("mismatched types (expecting `{expected}`, found `{found}`)"),
-            Self::GlobalNode => "unsupported statement in global scope".to_string(),
+            Self::ExpectedLvalue => "expected lvalue".to_string(),
             Self::UnknownIdent => "unknown identifier".to_string(),
             Self::RequiredBecauseOf => "this type is required because of this".to_string(),
         }
