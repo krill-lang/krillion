@@ -20,11 +20,11 @@ impl Typechecker {
     fn finalize(mut self, count: usize) -> (Vec<AType>, Vec<AError<TypeCheckError>>) {
         println!("{:#?}", self.types);
 
-        for i in 0..count {
+        for i in 0..self.types.len() {
             self.finalize_id(i);
-
-            println!("{:?}", self.types[i]);
         }
+
+        println!("{:#?}", self.types);
 
         let mut types = Vec::with_capacity(count);
         let mut marker = vec![false; self.types.len()];
@@ -59,6 +59,9 @@ impl Typechecker {
                 Ok(()) => {},
                 Err(e) => {
                     self.types[id].base = self.types[*i].base.clone();
+                    self.types[id].base = CheckingBaseType::Error;
+                    self.types[*i].base = CheckingBaseType::Error;
+                    println!("{id} {i} {hist:?}");
                     self.errs.push((e, self.types[*i].derived_from.clone()))
                 },
             }
@@ -69,8 +72,20 @@ impl Typechecker {
 
     fn link(&mut self, id: usize, c: usize) {
         self.def_in(id, self.types[c].derived_from.clone());
-        self.types[id].links_to.push(c);
-        self.types[c].links_to.push(id);
+        self.link_chain(id, c);
+        self.link_chain(c, id);
+    }
+
+    fn link_chain(&mut self, id: usize, tar: usize) {
+        if id == tar || self.types[id].links_to.contains(&tar) {
+            return;
+        }
+
+        self.types[id].links_to.push(tar);
+
+        for c in self.types[id].links_to.clone().into_iter() {
+            self.link_chain(c, tar);
+        }
     }
 
     fn def_in(&mut self, id: usize, span: Span) {
@@ -200,6 +215,8 @@ pub enum CheckingBaseType {
     Any,
     Integer,
     UnsignedInteger,
+
+    Error,
 }
 
 impl CheckingBaseType {
@@ -207,7 +224,7 @@ impl CheckingBaseType {
         use BuiltInType::*;
         use CheckingBaseType::*;
         match self {
-            Any
+            Any | Error
             | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128 | Int | Uint)
             | Integer | UnsignedInteger => true,
             _ => false,
@@ -218,7 +235,7 @@ impl CheckingBaseType {
         use BuiltInType::*;
         use CheckingBaseType::*;
         match self {
-            Any
+            Any | Error
             | BuiltIn(U8 | U16 | U32 | U64 | U128 | Uint)
             | UnsignedInteger => true,
             _ => false,
@@ -235,25 +252,6 @@ impl CheckingBaseType {
     }
 
 }
-
-// impl std::fmt::Display for CheckingBaseType {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         match &self {
-//             Self::Pointer(t) => write!(f, "&{}", t.base),
-//             Self::Slice(t) => write!(f, "[{}]", t.base),
-//             Self::Array(t, s) => write!(f, "[{} * {}]", t.base, s.0),
-//             Self::BuiltIn(b) => write!(f, "{b}"),
-//             Self::Any => write!(f, "_"),
-//             Self::Function(args, ret) => {
-//                 write!(f, "(fn({}) -> {}", args.iter().map(|a| a.base.to_string()).collect::<Vec<String>>().join(","), ret.base)?;
-// 
-//                 Ok(())
-//             },
-//             Self::Integer => write!(f, "{{int}}"),
-//             Self::UnsignedInteger => write!(f, "{{uint}}"),
-//         }
-//     }
-// }
 
 impl Typechecker {
     fn id_from_type(&mut self, t: CheckingType) -> usize {
@@ -280,6 +278,7 @@ impl Typechecker {
     fn specificness_of(&self, t: usize) -> usize {
         match &self.types[t].base {
             CheckingBaseType::Pointer(t) | CheckingBaseType::Slice(t) | CheckingBaseType::Array(t, _) => self.specificness_of(*t).saturating_sub(1),
+            CheckingBaseType::Error => 9000,
             CheckingBaseType::Any => 1000,
             CheckingBaseType::Integer => 12,
             CheckingBaseType::UnsignedInteger => 6,
@@ -300,16 +299,19 @@ impl Typechecker {
             }
         }
 
+        let hist = HistPop(hist);
+
         match (&self.types[l].base, &self.types[r].base) {
-            (CheckingBaseType::Pointer(l), CheckingBaseType::Pointer(r)) => self.types_eq(*l, *r, hist),
-            (CheckingBaseType::Slice(l), CheckingBaseType::Slice(r)) => self.types_eq(*l, *r, hist),
-            (CheckingBaseType::Array(lt, ls), CheckingBaseType::Array(rt, rs)) => ls.0 == rs.0 && self.types_eq(*lt, *rt, hist),
+            (CheckingBaseType::Pointer(l), CheckingBaseType::Pointer(r)) => self.types_eq(*l, *r, hist.0),
+            (CheckingBaseType::Slice(l), CheckingBaseType::Slice(r)) => self.types_eq(*l, *r, hist.0),
+            (CheckingBaseType::Array(lt, ls), CheckingBaseType::Array(rt, rs)) => ls.0 == rs.0 && self.types_eq(*lt, *rt, hist.0),
 
             (CheckingBaseType::BuiltIn(l), CheckingBaseType::BuiltIn(r)) => l == r,
 
-            (CheckingBaseType::Function(la, lr), CheckingBaseType::Function(ra, rr)) => self.types_eq(*lr, *rr, hist) && la.iter().zip(ra.iter()).fold(true, |a, (b, c)| a && self.types_eq(*b, *c, hist)),
+            (CheckingBaseType::Function(la, lr), CheckingBaseType::Function(ra, rr)) => self.types_eq(*lr, *rr, hist.0) && la.iter().zip(ra.iter()).fold(true, |a, (b, c)| a && self.types_eq(*b, *c, hist.0)),
 
             (CheckingBaseType::Any, CheckingBaseType::Any) => true,
+            (CheckingBaseType::Error, CheckingBaseType::Error) => true,
             (CheckingBaseType::Integer, CheckingBaseType::Integer) => true,
             (CheckingBaseType::UnsignedInteger, CheckingBaseType::UnsignedInteger) => true,
             _ => false,
@@ -355,7 +357,11 @@ impl Typechecker {
         let hist = HistPop(hist);
 
         match (&self.types[l].base, &self.types[r].base) {
+            (CheckingBaseType::Error, _) | (_, CheckingBaseType::Error) => {
+                return Ok(());
+            },
             (CheckingBaseType::Any, _) | (_, CheckingBaseType::Any) => {
+                self.link(l, r);
                 set(self);
                 return Ok(());
             },
@@ -368,6 +374,7 @@ impl Typechecker {
         let l_anyint = matches!(self.types[l].base, CheckingBaseType::Integer);
         let r_anyint = matches!(self.types[r].base, CheckingBaseType::Integer);
         if (l_anyint && self.types[r].base.is_int()) || (r_anyint && self.types[l].base.is_int()) {
+            self.link(l, r);
             set(self);
             return Ok(());
         }
@@ -375,6 +382,7 @@ impl Typechecker {
         let l_anyuint = matches!(self.types[l].base, CheckingBaseType::UnsignedInteger);
         let r_anyuint = matches!(self.types[r].base, CheckingBaseType::UnsignedInteger);
         if (l_anyuint && self.types[r].base.is_uint()) || (r_anyuint && self.types[l].base.is_uint()) {
+            self.link(l, r);
             set(self);
             return Ok(());
         }
@@ -416,6 +424,7 @@ impl Typechecker {
             },
             CheckingBaseType::BuiltIn(b) => acc += &b.to_string(),
             CheckingBaseType::Any => acc += "_",
+            CheckingBaseType::Error => acc += "{err}",
             CheckingBaseType::Function(args, ret) => {
                 let ret = *ret;
                 acc += "(fn(";
@@ -459,6 +468,7 @@ impl Typechecker {
                 }
                 Type::Any
             },
+            CheckingBaseType::Error => Type::Any,
         }, t.derived_from);
 
         hist.pop();
