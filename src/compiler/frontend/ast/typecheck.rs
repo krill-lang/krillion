@@ -22,10 +22,9 @@ impl Typechecker {
             self.finalize_id(i);
         }
 
-        println!("{:#?}", self.types);
-
         let mut types = Vec::with_capacity(self.types.len());
         for i in 0..self.types.len() {
+            println!("{}", self.format_id(i));
             types.push(self.output_type(i));
         }
 
@@ -111,7 +110,7 @@ impl Typechecker {
 
                 if let Some(expr) = expr {
                     self.typecheck_expr(expr);
-                    self.link(expr.1.1, ident.1.1);
+                    self.link(ident.1.1, expr.1.1);
                 }
             },
             NodeKind::Expr(expr) => self.typecheck_expr(expr),
@@ -120,9 +119,10 @@ impl Typechecker {
     }
 
     fn typecheck_expr(&mut self, expr: &NExpr) {
+        self.def_in(expr.1.1, expr.1.0.clone());
+
         match &expr.0 {
             Expr::Integer(_) => {
-                self.def_in(expr.1.1, expr.1.0.clone());
                 let int = self.id_from_type(CheckingBaseType::Integer.expand(expr.1.0.clone()));
                 self.link(expr.1.1, int);
             },
