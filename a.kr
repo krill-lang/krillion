@@ -7,7 +7,11 @@
 // let a u8
 // let b u16 = a
 
+// let a
+// let b = &a
+// let u8 u8
+// *b = u8
+
 let a
-let b = &a
-let u8 u8
-*b = u8
+a[123] = 0
+a[123] = a

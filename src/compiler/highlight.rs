@@ -2,7 +2,7 @@ pub use logos::*;
 
 #[derive(Debug, Clone, Logos)]
 pub enum HighlightToken {
-    #[regex(r"([\d_]+|0x[\da-fA-F_]+|0b[01_]+)", priority = 11)]
+    #[regex(r"([\d][\d_]*|0x[\da-fA-F_]+|0b[01_]+)", priority = 11)]
     Integer,
     #[regex(r"[_a-zA-Z0-9\u0100-\x{fffff}]+", priority = 0)]
     Ident,

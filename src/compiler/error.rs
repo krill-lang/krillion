@@ -314,6 +314,7 @@ pub enum TypeCheckError {
     ExpectedLvalue,
     UnknownIdent,
     RequiredBecauseOf,
+    CyclicType,
 }
 
 impl CompilerError for TypeCheckError {
@@ -326,6 +327,7 @@ impl CompilerError for TypeCheckError {
             Self::ExpectedLvalue => "expected lvalue".to_string(),
             Self::UnknownIdent => "unknown identifier".to_string(),
             Self::RequiredBecauseOf => "this type is required because of this".to_string(),
+            Self::CyclicType => "cyclic type".to_string(),
         }
     }
 
