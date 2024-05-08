@@ -1,17 +1,17 @@
-// let a // 0
-// let b // 1
-// let u8 u8 // 2
-// a = b // a: 3, b: 4, =: 5
-// b = u8 // b: 6, u8: 7, =: 8
+// let a
+// let b
+// let u8 u8
+// a = b
+// b = u8
 
-// let a u8
-// let b u16 = a
+let a u8
+let b u16 = a
 
 // let a
 // let b = &a
 // let u8 u8
 // *b = u8
 
-let a
-// a[0] = 0
-a[0] = a
+// let a
+// // a[0] = 0
+// a[0] = a

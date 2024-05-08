@@ -22,9 +22,9 @@ impl Typechecker {
 
         for i in 0..count {
             self.finalize_id(i);
-        }
 
-        println!("{:#?}", self.types);
+            println!("{:?}", self.types[i]);
+        }
 
         let mut types = Vec::with_capacity(count);
         let mut marker = vec![false; self.types.len()];
@@ -57,7 +57,10 @@ impl Typechecker {
 
             match self.constrain_ids(id, *i) {
                 Ok(()) => {},
-                Err(e) => self.errs.push((e, self.types[id].derived_from.clone())),
+                Err(e) => {
+                    self.types[id].base = self.types[*i].base.clone();
+                    self.errs.push((e, self.types[*i].derived_from.clone()))
+                },
             }
         }
 
@@ -74,10 +77,6 @@ impl Typechecker {
         if span != (0..0) && self.types[id].derived_from == (0..0) {
             self.types[id].derived_from = span;
         }
-    }
-
-    fn is_lvalue(&mut self, id: usize) -> bool {
-        self.types[id].is_lvalue
     }
 
     fn set_lvalue(&mut self, id: usize) {
@@ -126,6 +125,7 @@ impl Typechecker {
                 self.typecheck_expr(opr);
                 let pi = self.id_from_type(CheckingBaseType::Pointer(expr.1.1).expand(expr.1.0.clone()));
                 self.link(opr.1.1, pi);
+                self.set_lvalue(expr.1.1);
             },
             Expr::UnOp { op: Operator::Ref, opr } => {
                 self.typecheck_expr(opr);
@@ -164,10 +164,8 @@ impl Typechecker {
 
                 let u = self.id_from_type(CheckingBaseType::UnsignedInteger.expand(expr.1.0.clone()));
                 self.link(rhs.1.1, u);
-            //     self.typecheck_expr(&lhs, Some((TypeKind::Slice(Box::new(self.types[expr.1.1].clone())), expr.1.0.clone())));
-            //     self.typecheck_expr(&rhs, Some((TypeKind::UnsignedInteger, expr.1.0.clone())));
 
-            //     self.lvalue(expr.1.1);
+                self.set_lvalue(expr.1.1);
             },
             Expr::BiOp { lhs, rhs, op: _ } => {
                 self.typecheck_expr(&lhs);
@@ -324,6 +322,9 @@ impl Typechecker {
 
     fn _constrain_ids(&mut self, l: usize, r: usize, hist: &mut Vec<(usize, usize)>) -> Result<(), TypeCheckError> {
         if hist.iter().find(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2)).is_some() {
+            self.types[l].base = CheckingBaseType::Any;
+            self.types[r].base = CheckingBaseType::Any;
+
             return Err(TypeCheckError::CyclicType);
         }
 
@@ -382,7 +383,7 @@ impl Typechecker {
     }
 
     fn format_id(&mut self, id: usize) -> String {
-        self.finalize_id(id);
+        // self.finalize_id(id);
         let t = &self.types[id];
 
         let mut acc = String::new();
