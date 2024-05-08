@@ -353,7 +353,6 @@ impl Typechecker {
 
         let hist = HistPop(hist);
 
-
         match (&self.types[l].base, &self.types[r].base) {
             (CheckingBaseType::Any, _) | (_, CheckingBaseType::Any) => {
                 set(self);
@@ -371,7 +370,6 @@ impl Typechecker {
             set(self);
             return Ok(());
         }
-
 
         let l_anyuint = matches!(self.types[l].base, CheckingBaseType::UnsignedInteger);
         let r_anyuint = matches!(self.types[r].base, CheckingBaseType::UnsignedInteger);
@@ -432,13 +430,22 @@ impl Typechecker {
     }
 
     fn output_type(&mut self, ti: usize, marker: &mut [bool]) -> AType {
-        let t = self.types[ti].clone();
-        (match t.base {
-            CheckingBaseType::Pointer(t) => Type::Pointer(Box::new(self.output_type(t, marker))),
-            CheckingBaseType::Slice(t) => Type::Slice(Box::new(self.output_type(t, marker))),
-            CheckingBaseType::Array(t, s) => Type::Array(Box::new(self.output_type(t, marker)), s.clone()),
+        self._output_type(ti, marker, &mut vec![])
+    }
 
-            CheckingBaseType::Function(a, r) => Type::Function(a.into_iter().map(|a| self.output_type(a, marker)).collect(), Box::new(self.output_type(r, marker))),
+    fn _output_type(&mut self, ti: usize, marker: &mut [bool], hist: &mut Vec<usize>) -> AType {
+        if hist.contains(&ti) {
+            return (Type::Any, 0..0);
+        }
+
+        hist.push(ti);
+        let t = self.types[ti].clone();
+        let r = (match t.base {
+            CheckingBaseType::Pointer(t) => Type::Pointer(Box::new(self._output_type(t, marker, hist))),
+            CheckingBaseType::Slice(t) => Type::Slice(Box::new(self._output_type(t, marker, hist))),
+            CheckingBaseType::Array(t, s) => Type::Array(Box::new(self._output_type(t, marker, hist)), s.clone()),
+
+            CheckingBaseType::Function(a, r) => Type::Function(a.into_iter().map(|a| self._output_type(a, marker, hist)).collect(), Box::new(self._output_type(r, marker, hist))),
 
             CheckingBaseType::BuiltIn(b) => Type::BuiltIn(b.clone()),
 
@@ -451,6 +458,9 @@ impl Typechecker {
                 }
                 Type::Any
             },
-        }, t.derived_from)
+        }, t.derived_from);
+
+        hist.pop();
+        r
     }
 }
