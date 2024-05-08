@@ -310,7 +310,7 @@ impl CompilerError for NumerateError {
 #[derive(Debug, Clone)]
 pub enum TypeCheckError {
     UnresolvedType,
-    TypeMismatch { expected: CheckingBaseType, found: CheckingBaseType },
+    TypeMismatch { expected: String, found: String },
     ExpectedLvalue,
     UnknownIdent,
     RequiredBecauseOf,

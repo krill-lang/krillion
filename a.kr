@@ -9,4 +9,5 @@
 
 let a
 let b = &a
-*b = 1
+let u8 u8
+*b = u8
