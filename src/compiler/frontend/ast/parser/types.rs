@@ -130,6 +130,7 @@ impl<'a> Parser<'a> {
                     match self.buf.peek() {
                         Some((Token::RoBracketE, span)) => {
                             end = span.end;
+                            self.buf.next();
                             break;
                         },
                         Some(_) => {},

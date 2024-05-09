@@ -13,5 +13,17 @@
 // *b = u8
 
 // let a
-// // a[0] = 0
+// a[0] = 0
 // a[0] = a
+
+// static let pi = 3
+// pi = 5
+
+// let a = 0
+// let b
+// let c = a == b
+// c = 1
+
+fn a(a uint, b int) {
+	b = a
+}

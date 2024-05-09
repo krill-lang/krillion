@@ -56,13 +56,14 @@ impl Typechecker {
             match self.constrain_ids(id, *i) {
                 Ok(()) => {},
                 Err(e) => {
+                    println!("{id} {i} {hist:?}");
                     self.types[id].base = CheckingBaseType::Error;
                     self.types[*i].base = CheckingBaseType::Error;
 
-                    self.errs.push((e, self.types[*i].derived_from.clone()));
+                    self.errs.push((e, self.types[id].derived_from.clone()));
                     self.errs.push((
                         TypeCheckError::RequiredBecauseOf,
-                        self.types[id].derived_from.clone(),
+                        self.types[*i].derived_from.clone(),
                     ));
                 },
             }
@@ -122,7 +123,41 @@ impl Typechecker {
                 }
             },
             NodeKind::Expr(expr) => self.typecheck_expr(expr),
-            _ => todo!("{n:?}"),
+            NodeKind::Scope { body, .. } => self.typecheck_ast(body),
+            NodeKind::If { main, els } => {
+                self.typecheck_node(&main.1);
+                if let Some(els) = els {
+                    self.typecheck_node(&els.0);
+                }
+
+                self.typecheck_expr(&main.0);
+                let b = self.id_from_type(CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()));
+                self.link(main.0.1.1, b);
+            },
+            NodeKind::While { cond, body } => {
+                self.typecheck_node(&body);
+                self.typecheck_expr(cond);
+                let b = self.id_from_type(CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()));
+                self.link(cond.1.1, b);
+            },
+            NodeKind::Return(Some(expr)) => self.typecheck_expr(expr),
+            NodeKind::Return(None) => {},
+            NodeKind::FunctionDeclare { vis, link, ident, params, return_type, body, span } => {
+                let mut p = Vec::with_capacity(params.len());
+                for a in params.iter() {
+                    let t = self.id_from_atype(&a.1);
+                    self.link(a.0.1.1, t);
+                    p.push(t);
+                }
+
+                let r = self.id_from_atype(return_type);
+                let f = self.id_from_type(CheckingBaseType::Function(p, r).expand(n.span.clone()));
+                self.link(ident.1.1, f);
+
+                // TODO: check return type
+                self.typecheck_node(&body);
+            },
+            // _ => todo!("{n:?}"),
         }
     }
 
@@ -388,8 +423,8 @@ impl Typechecker {
             .find(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2))
             .is_some()
         {
-            self.types[l].base = CheckingBaseType::Any;
-            self.types[r].base = CheckingBaseType::Any;
+            self.types[l].base = CheckingBaseType::Error;
+            self.types[r].base = CheckingBaseType::Error;
 
             return Err(TypeCheckError::CyclicType);
         }
@@ -463,8 +498,8 @@ impl Typechecker {
         }
 
         Err(TypeCheckError::TypeMismatch {
-            expected: self.format_id(l),
-            found: self.format_id(r),
+            expected: self.format_id(r),
+            found: self.format_id(l),
         })
     }
 
@@ -514,6 +549,7 @@ impl Typechecker {
                     .join(", ");
                 acc += ") -> ";
                 acc += &self.format_id(ret);
+                acc += ")";
             },
             CheckingBaseType::Integer => acc += "{int}",
             CheckingBaseType::UnsignedInteger => acc += "{uint}",
