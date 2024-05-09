@@ -358,6 +358,9 @@ impl Typechecker {
 
         match (&self.types[l].base, &self.types[r].base) {
             (CheckingBaseType::Error, _) | (_, CheckingBaseType::Error) => {
+                self.types[l].base = CheckingBaseType::Error;
+                self.types[r].base = CheckingBaseType::Error;
+
                 return Ok(());
             },
             (CheckingBaseType::Any, _) | (_, CheckingBaseType::Any) => {
