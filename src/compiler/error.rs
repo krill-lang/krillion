@@ -312,7 +312,6 @@ pub enum TypeCheckError {
     UnresolvedType,
     TypeMismatch { expected: String, found: String },
     ExpectedLvalue,
-    UnknownIdent,
     RequiredBecauseOf,
     CyclicType,
 }
@@ -325,7 +324,6 @@ impl CompilerError for TypeCheckError {
                 expected, found
             } => format!("mismatched types (expecting `{expected}`, found `{found}`)"),
             Self::ExpectedLvalue => "expected lvalue".to_string(),
-            Self::UnknownIdent => "unknown identifier".to_string(),
             Self::RequiredBecauseOf => "this type is required because of this".to_string(),
             Self::CyclicType => "cyclic type".to_string(),
         }

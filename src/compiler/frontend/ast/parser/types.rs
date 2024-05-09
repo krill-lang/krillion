@@ -127,7 +127,7 @@ impl<'a> Parser<'a> {
                     },
                 }
 
-                let mut end = 0;
+                let end;
                 let mut args = Vec::new();
 
                 loop {

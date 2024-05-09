@@ -58,11 +58,11 @@ impl Typechecker {
             match self.constrain_ids(id, *i) {
                 Ok(()) => {},
                 Err(e) => {
-                    self.types[id].base = self.types[*i].base.clone();
                     self.types[id].base = CheckingBaseType::Error;
                     self.types[*i].base = CheckingBaseType::Error;
-                    println!("{id} {i} {hist:?}");
-                    self.errs.push((e, self.types[*i].derived_from.clone()))
+
+                    self.errs.push((e, self.types[*i].derived_from.clone()));
+                    self.errs.push((TypeCheckError::RequiredBecauseOf, self.types[id].derived_from.clone()));
                 },
             }
         }
