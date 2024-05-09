@@ -45,6 +45,12 @@ impl Numerator {
                     typ,
                     expr,
                 } => {
+                    let expr = if let Some(expr) = expr {
+                        Some(self.numerate_expr(expr, &idents))
+                    } else {
+                        None
+                    };
+
                     let id = self.assign();
                     idents.insert(ident.0.clone(), id);
 
@@ -55,11 +61,7 @@ impl Numerator {
 
                             ident: (ident.0, (ident.1, id)),
                             typ, // TODO:
-                            expr: if let Some(expr) = expr {
-                                Some(self.numerate_expr(expr, &idents))
-                            } else {
-                                None
-                            },
+                            expr,
                         },
                         span: n.span,
                         extra: n.extra,

@@ -24,6 +24,16 @@
 // let c = a == b
 // c = 1
 
-fn a(a uint, b int) {
-	b = a
+// fn a(b _) {
+// 	// b = a
+// 	// let a u8
+// 	// let b u16 = a
+// }
+
+fn a() int {
+	return b() + 1
+}
+
+fn b() uint {
+	return 0
 }

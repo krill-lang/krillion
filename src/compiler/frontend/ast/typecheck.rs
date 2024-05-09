@@ -6,7 +6,7 @@ pub fn typecheck(ast: &NumeratedAst, count: usize) -> (Vec<AType>, Vec<AError<Ty
         errs: Vec::new(),
     };
 
-    typechecker.typecheck_ast(ast);
+    typechecker.typecheck_ast(ast, None);
     typechecker.finalize(count)
 }
 
@@ -27,17 +27,16 @@ impl Typechecker {
         println!("{:#?}", self.types);
 
         let mut types = Vec::with_capacity(count);
-        let mut marker = vec![false; self.types.len()];
         for i in 0..count {
-            types.push(self.output_type(i, &mut marker));
+            types.push(self.output_type(i));
         }
 
         (types, self.errs)
     }
 
-    fn typecheck_ast(&mut self, ast: &NumeratedAst) {
+    fn typecheck_ast(&mut self, ast: &NumeratedAst, ret: Option<usize>) {
         for n in ast.iter() {
-            self.typecheck_node(n);
+            self.typecheck_node(n, ret);
         }
     }
 
@@ -56,14 +55,13 @@ impl Typechecker {
             match self.constrain_ids(id, *i) {
                 Ok(()) => {},
                 Err(e) => {
-                    println!("{id} {i} {hist:?}");
                     self.types[id].base = CheckingBaseType::Error;
                     self.types[*i].base = CheckingBaseType::Error;
 
-                    self.errs.push((e, self.types[id].derived_from.clone()));
+                    self.errs.push((e, self.types[*i].derived_from.clone()));
                     self.errs.push((
                         TypeCheckError::RequiredBecauseOf,
-                        self.types[*i].derived_from.clone(),
+                        self.types[id].derived_from.clone(),
                     ));
                 },
             }
@@ -74,11 +72,11 @@ impl Typechecker {
 
     fn link(&mut self, id: usize, c: usize) {
         self.def_in(id, self.types[c].derived_from.clone());
-        self.link_chain(id, c);
-        self.link_chain(c, id);
+        self.link_chain1(id, c);
+        self.link_chain2(c, id);
     }
 
-    fn link_chain(&mut self, id: usize, tar: usize) {
+    fn link_chain1(&mut self, id: usize, tar: usize) {
         if id == tar || self.types[id].links_to.contains(&tar) {
             return;
         }
@@ -86,7 +84,19 @@ impl Typechecker {
         self.types[id].links_to.push(tar);
 
         for c in self.types[id].links_to.clone().into_iter() {
-            self.link_chain(c, tar);
+            self.link_chain1(c, tar);
+        }
+    }
+
+    fn link_chain2(&mut self, id: usize, tar: usize) {
+        if id == tar || self.types[id].linked_from.contains(&tar) {
+            return;
+        }
+
+        self.types[id].linked_from.push(tar);
+
+        for c in self.types[id].linked_from.clone().into_iter() {
+            self.link_chain2(c, tar);
         }
     }
 
@@ -105,7 +115,7 @@ impl Typechecker {
         }
     }
 
-    fn typecheck_node(&mut self, n: &Node<NumeratedNode>) {
+    fn typecheck_node(&mut self, n: &Node<NumeratedNode>, ret: Option<usize>) {
         match &n.kind {
             NodeKind::VarDeclare {
                 ident, typ, expr, ..
@@ -123,11 +133,11 @@ impl Typechecker {
                 }
             },
             NodeKind::Expr(expr) => self.typecheck_expr(expr),
-            NodeKind::Scope { body, .. } => self.typecheck_ast(body),
+            NodeKind::Scope { body, .. } => self.typecheck_ast(body, ret),
             NodeKind::If { main, els } => {
-                self.typecheck_node(&main.1);
+                self.typecheck_node(&main.1, ret);
                 if let Some(els) = els {
-                    self.typecheck_node(&els.0);
+                    self.typecheck_node(&els.0, ret);
                 }
 
                 self.typecheck_expr(&main.0);
@@ -135,13 +145,25 @@ impl Typechecker {
                 self.link(main.0.1.1, b);
             },
             NodeKind::While { cond, body } => {
-                self.typecheck_node(&body);
+                self.typecheck_node(&body, ret);
                 self.typecheck_expr(cond);
                 let b = self.id_from_type(CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()));
-                self.link(cond.1.1, b);
+                self.link(b, cond.1.1);
             },
-            NodeKind::Return(Some(expr)) => self.typecheck_expr(expr),
-            NodeKind::Return(None) => {},
+            NodeKind::Return(expr) => {
+                if let Some(ret) = ret {
+                    let id = if let Some(expr) = expr {
+                        self.typecheck_expr(expr);
+                        expr.1.1
+                    } else {
+                        self.id_from_type(CheckingBaseType::BuiltIn(BuiltInType::Unit).expand(n.span.clone()))
+                    };
+
+                    self.link(id, ret);
+                } else {
+                    self.errs.push((TypeCheckError::UnexpectedReturn, n.span.clone()));
+                }
+            },
             NodeKind::FunctionDeclare { vis, link, ident, params, return_type, body, span } => {
                 let mut p = Vec::with_capacity(params.len());
                 for a in params.iter() {
@@ -155,9 +177,8 @@ impl Typechecker {
                 self.link(ident.1.1, f);
 
                 // TODO: check return type
-                self.typecheck_node(&body);
+                self.typecheck_node(&body, Some(r));
             },
-            // _ => todo!("{n:?}"),
         }
     }
 
@@ -259,6 +280,18 @@ impl Typechecker {
                 self.link(lhs.1.1, rhs.1.1);
                 self.link(expr.1.1, lhs.1.1);
             },
+            Expr::FnCall { id, op } => {
+                let mut a = Vec::with_capacity(op.len());
+                for i in op.iter() {
+                    self.typecheck_expr(i);
+                    a.push(i.1.1);
+                }
+
+                self.typecheck_expr(&id);
+
+                let t = self.id_from_type(CheckingBaseType::Function(a, expr.1.1).expand(expr.1.0.clone()));
+                self.link(t, id.1.1);
+            },
             _ => todo!("{expr:?}"),
         }
     }
@@ -271,6 +304,7 @@ pub struct CheckingType {
     derived_from: Span,
 
     links_to: Vec<usize>,
+    linked_from: Vec<usize>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -319,6 +353,7 @@ impl CheckingBaseType {
             is_lvalue: false,
             derived_from: from,
             links_to: vec![],
+            linked_from: vec![],
         }
     }
 }
@@ -476,6 +511,11 @@ impl Typechecker {
             (CheckingBaseType::Array(l, ls), CheckingBaseType::Array(r, rs)) if ls == rs => {
                 return self._constrain_ids(*l, *r, hist.0);
             },
+            (CheckingBaseType::Function(lp, la), CheckingBaseType::Function(rp, ra)) if lp.len() == rp.len() => {
+                let la = *la;
+                let ra = *ra;
+                return lp.clone().into_iter().zip(rp.clone().into_iter()).fold(Ok(()), |a, (b, c)| a.and_then(|()| self._constrain_ids(b, c, hist.0))).and_then(|()| self._constrain_ids(la, ra, hist.0));
+            }
             _ => {},
         }
 
@@ -498,8 +538,8 @@ impl Typechecker {
         }
 
         Err(TypeCheckError::TypeMismatch {
-            expected: self.format_id(r),
-            found: self.format_id(l),
+            expected: self.format_id(l),
+            found: self.format_id(r),
         })
     }
 
@@ -558,11 +598,11 @@ impl Typechecker {
         acc
     }
 
-    fn output_type(&mut self, ti: usize, marker: &mut [bool]) -> AType {
-        self._output_type(ti, marker, &mut vec![])
+    fn output_type(&mut self, ti: usize) -> AType {
+        self._output_type(ti, &mut vec![])
     }
 
-    fn _output_type(&mut self, ti: usize, marker: &mut [bool], hist: &mut Vec<usize>) -> AType {
+    fn _output_type(&mut self, ti: usize, hist: &mut Vec<usize>) -> AType {
         if hist.contains(&ti) {
             return (Type::Any, 0..0);
         }
@@ -572,20 +612,20 @@ impl Typechecker {
         let r = (
             match t.base {
                 CheckingBaseType::Pointer(t) => {
-                    Type::Pointer(Box::new(self._output_type(t, marker, hist)))
+                    Type::Pointer(Box::new(self._output_type(t, hist)))
                 },
                 CheckingBaseType::Slice(t) => {
-                    Type::Slice(Box::new(self._output_type(t, marker, hist)))
+                    Type::Slice(Box::new(self._output_type(t, hist)))
                 },
                 CheckingBaseType::Array(t, s) => {
-                    Type::Array(Box::new(self._output_type(t, marker, hist)), s.clone())
+                    Type::Array(Box::new(self._output_type(t, hist)), s.clone())
                 },
 
                 CheckingBaseType::Function(a, r) => Type::Function(
                     a.into_iter()
-                        .map(|a| self._output_type(a, marker, hist))
+                        .map(|a| self._output_type(a, hist))
                         .collect(),
-                    Box::new(self._output_type(r, marker, hist)),
+                    Box::new(self._output_type(r, hist)),
                 ),
 
                 CheckingBaseType::BuiltIn(b) => Type::BuiltIn(b.clone()),
@@ -593,11 +633,14 @@ impl Typechecker {
                 CheckingBaseType::Integer => Type::BuiltIn(BuiltInType::Int),
                 CheckingBaseType::UnsignedInteger => Type::BuiltIn(BuiltInType::Uint),
                 CheckingBaseType::Any => {
-                    if !marker[ti] {
-                        self.errs
-                            .push((TypeCheckError::UnresolvedType, t.derived_from.clone()));
-                        marker[ti] = true;
-                    }
+                    self.errs
+                        .push((TypeCheckError::UnresolvedType, t.derived_from.clone()));
+                    self.types[ti].base = CheckingBaseType::Error;
+
+                    let t = &mut self.types[ti];
+                    t.links_to.append(&mut t.linked_from);
+                    self.finalize_id(ti);
+
                     Type::Any
                 },
                 CheckingBaseType::Error => Type::Any,
