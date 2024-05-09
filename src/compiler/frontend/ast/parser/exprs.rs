@@ -5,17 +5,24 @@ fn rev_insert(e: &mut AExpr, i: AExpr, op: Operator) {
 
     match &mut e.0 {
         Expr::BiOp { op: op2, .. } if op != *op2 => {
-            e.0 = Expr::BiOp { lhs: Box::new(e.clone()), rhs: Box::new(i), op };
+            e.0 = Expr::BiOp {
+                lhs: Box::new(e.clone()),
+                rhs: Box::new(i),
+                op,
+            };
         },
         Expr::BiOp { rhs, .. } => rev_insert(rhs, i, op),
         _ => {
-            e.0 = Expr::BiOp { lhs: Box::new(e.clone()), rhs: Box::new(i), op };
+            e.0 = Expr::BiOp {
+                lhs: Box::new(e.clone()),
+                rhs: Box::new(i),
+                op,
+            };
         },
     }
 
     e.1.end = end;
 }
-
 
 impl<'a> super::Parser<'a> {
     // https://www.engr.mun.ca/~theo/Misc/exp_parsing.htm#climbing

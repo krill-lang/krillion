@@ -320,9 +320,9 @@ impl CompilerError for TypeCheckError {
     fn message(&self) -> String {
         match self {
             Self::UnresolvedType => "unable to resolve type for expression".to_string(),
-            Self::TypeMismatch {
-                expected, found
-            } => format!("mismatched types (expecting `{expected}`, found `{found}`)"),
+            Self::TypeMismatch { expected, found } => {
+                format!("mismatched types (expecting `{expected}`, found `{found}`)")
+            },
             Self::ExpectedLvalue => "expected lvalue".to_string(),
             Self::RequiredBecauseOf => "this type is required because of this".to_string(),
             Self::CyclicType => "cyclic type".to_string(),

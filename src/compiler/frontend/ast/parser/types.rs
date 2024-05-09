@@ -21,10 +21,7 @@ impl<'a> Parser<'a> {
                 let inner = self.parse_type()?;
                 let end = inner.1.end;
                 Some((
-                    Type::Pointer(Box::new((
-                        Type::Pointer(Box::new(inner)),
-                        start_2..end,
-                    ))),
+                    Type::Pointer(Box::new((Type::Pointer(Box::new(inner)), start_2..end))),
                     start_1..end,
                 ))
             },
@@ -33,10 +30,9 @@ impl<'a> Parser<'a> {
 
                 let inner = self.parse_type()?;
                 match self.buf.next() {
-                    Some((Token::SqBracketE, end_span)) => Some((
-                        Type::Slice(Box::new(inner)),
-                        start..end_span.end,
-                    )),
+                    Some((Token::SqBracketE, end_span)) => {
+                        Some((Type::Slice(Box::new(inner)), start..end_span.end))
+                    },
                     Some((Token::Operator(Operator::Mlt), _)) => {
                         let size = match self.buf.next() {
                             Some((Token::Integer(size), span)) => (*size, span.clone()),
@@ -175,16 +171,20 @@ impl<'a> Parser<'a> {
                         let end = ret.1.end;
                         Some((Type::Function(args, Box::new(ret)), start..end))
                     },
-                    _ => Some((Type::Function(args, Box::new((Type::BuiltIn(BuiltInType::Unit), start..end))), start..end)),
+                    _ => Some((
+                        Type::Function(
+                            args,
+                            Box::new((Type::BuiltIn(BuiltInType::Unit), start..end)),
+                        ),
+                        start..end,
+                    )),
                 }
             },
             Some((Token::RoBracketS, span)) => {
                 let start = span.start;
                 let typ = self.parse_type()?;
                 match self.buf.next() {
-                    Some((Token::RoBracketE, span)) => {
-                        Some((typ.0, start..span.end))
-                    },
+                    Some((Token::RoBracketE, span)) => Some((typ.0, start..span.end)),
                     Some((t, span)) => {
                         self.errs.push((
                             ParseError::UnexpectedToken {

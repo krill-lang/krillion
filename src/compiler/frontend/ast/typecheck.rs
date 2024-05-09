@@ -41,9 +41,7 @@ impl Typechecker {
         }
     }
 
-    fn finalize_id(&mut self, id: usize) {
-        self._finalize_single(id, &mut vec![]);
-    }
+    fn finalize_id(&mut self, id: usize) { self._finalize_single(id, &mut vec![]); }
 
     fn _finalize_single(&mut self, id: usize, hist: &mut Vec<usize>) {
         if hist.contains(&id) {
@@ -62,7 +60,10 @@ impl Typechecker {
                     self.types[*i].base = CheckingBaseType::Error;
 
                     self.errs.push((e, self.types[*i].derived_from.clone()));
-                    self.errs.push((TypeCheckError::RequiredBecauseOf, self.types[id].derived_from.clone()));
+                    self.errs.push((
+                        TypeCheckError::RequiredBecauseOf,
+                        self.types[id].derived_from.clone(),
+                    ));
                 },
             }
         }
@@ -94,19 +95,20 @@ impl Typechecker {
         }
     }
 
-    fn set_lvalue(&mut self, id: usize) {
-        self.types[id].is_lvalue = true;
-    }
+    fn set_lvalue(&mut self, id: usize) { self.types[id].is_lvalue = true; }
 
     fn constrain_lvalue(&mut self, id: usize, span: &Span) {
         if !self.types[id].is_lvalue {
-            self.errs.push((TypeCheckError::ExpectedLvalue, span.clone()));
+            self.errs
+                .push((TypeCheckError::ExpectedLvalue, span.clone()));
         }
     }
 
     fn typecheck_node(&mut self, n: &Node<NumeratedNode>) {
         match &n.kind {
-            NodeKind::VarDeclare { ident, typ, expr, .. } => {
+            NodeKind::VarDeclare {
+                ident, typ, expr, ..
+            } => {
                 self.def_in(ident.1.1, ident.1.0.clone());
 
                 if let Some(t) = typ {
@@ -136,48 +138,82 @@ impl Typechecker {
                 self.link(expr.1.1, id.1);
                 self.set_lvalue(expr.1.1);
             },
-            Expr::UnOp { op: Operator::Deref, opr } => {
+            Expr::UnOp {
+                op: Operator::Deref,
+                opr,
+            } => {
                 self.typecheck_expr(opr);
-                let pi = self.id_from_type(CheckingBaseType::Pointer(expr.1.1).expand(expr.1.0.clone()));
+                let pi =
+                    self.id_from_type(CheckingBaseType::Pointer(expr.1.1).expand(expr.1.0.clone()));
                 self.link(opr.1.1, pi);
                 self.set_lvalue(expr.1.1);
             },
-            Expr::UnOp { op: Operator::Ref, opr } => {
+            Expr::UnOp {
+                op: Operator::Ref,
+                opr,
+            } => {
                 self.typecheck_expr(opr);
-                let pi = self.id_from_type(CheckingBaseType::Pointer(opr.1.1).expand(expr.1.0.clone()));
+                let pi =
+                    self.id_from_type(CheckingBaseType::Pointer(opr.1.1).expand(expr.1.0.clone()));
                 self.link(expr.1.1, pi);
             },
             Expr::UnOp { opr, .. } => {
                 self.typecheck_expr(opr);
                 self.link(expr.1.1, opr.1.1);
             },
-            Expr::BiOp { lhs, rhs, op: Operator::Assign | Operator::OpAssign(_) } => {
+            Expr::BiOp {
+                lhs,
+                rhs,
+                op: Operator::Assign | Operator::OpAssign(_),
+            } => {
                 self.typecheck_expr(&lhs);
                 self.typecheck_expr(&rhs);
                 self.constrain_lvalue(lhs.1.1, &lhs.1.0);
 
                 self.link(lhs.1.1, rhs.1.1);
 
-                let unit = self.id_from_type(CheckingBaseType::BuiltIn(BuiltInType::Unit).expand(expr.1.0.clone()));
+                let unit = self.id_from_type(
+                    CheckingBaseType::BuiltIn(BuiltInType::Unit).expand(expr.1.0.clone()),
+                );
                 self.link(expr.1.1, unit);
                 self.def_in(expr.1.1, expr.1.0.clone());
             },
-            Expr::BiOp { lhs, rhs, op: Operator::Eq | Operator::NE | Operator::GT | Operator::GE | Operator::LT | Operator::LE | Operator::AndAnd | Operator::OrOr } => {
+            Expr::BiOp {
+                lhs,
+                rhs,
+                op:
+                    Operator::Eq
+                    | Operator::NE
+                    | Operator::GT
+                    | Operator::GE
+                    | Operator::LT
+                    | Operator::LE
+                    | Operator::AndAnd
+                    | Operator::OrOr,
+            } => {
                 self.typecheck_expr(&lhs);
                 self.typecheck_expr(&rhs);
                 self.link(lhs.1.1, rhs.1.1);
 
-                let b = self.id_from_type(CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(expr.1.0.clone()));
+                let b = self.id_from_type(
+                    CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(expr.1.0.clone()),
+                );
                 self.link(expr.1.1, b);
             },
-            Expr::BiOp { lhs, rhs, op: Operator::Index } => {
+            Expr::BiOp {
+                lhs,
+                rhs,
+                op: Operator::Index,
+            } => {
                 self.typecheck_expr(lhs);
                 self.typecheck_expr(rhs);
 
-                let a = self.id_from_type(CheckingBaseType::Slice(expr.1.1).expand(expr.1.0.clone()));
+                let a =
+                    self.id_from_type(CheckingBaseType::Slice(expr.1.1).expand(expr.1.0.clone()));
                 self.link(lhs.1.1, a);
 
-                let u = self.id_from_type(CheckingBaseType::UnsignedInteger.expand(expr.1.0.clone()));
+                let u =
+                    self.id_from_type(CheckingBaseType::UnsignedInteger.expand(expr.1.0.clone()));
                 self.link(rhs.1.1, u);
 
                 self.set_lvalue(expr.1.1);
@@ -224,9 +260,11 @@ impl CheckingBaseType {
         use BuiltInType::*;
         use CheckingBaseType::*;
         match self {
-            Any | Error
+            Any
+            | Error
             | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128 | Int | Uint)
-            | Integer | UnsignedInteger => true,
+            | Integer
+            | UnsignedInteger => true,
             _ => false,
         }
     }
@@ -235,9 +273,7 @@ impl CheckingBaseType {
         use BuiltInType::*;
         use CheckingBaseType::*;
         match self {
-            Any | Error
-            | BuiltIn(U8 | U16 | U32 | U64 | U128 | Uint)
-            | UnsignedInteger => true,
+            Any | Error | BuiltIn(U8 | U16 | U32 | U64 | U128 | Uint) | UnsignedInteger => true,
             _ => false,
         }
     }
@@ -250,7 +286,6 @@ impl CheckingBaseType {
             links_to: vec![],
         }
     }
-
 }
 
 impl Typechecker {
@@ -264,20 +299,26 @@ impl Typechecker {
             Type::Pointer(t) => CheckingBaseType::Pointer(self.id_from_atype(&t)),
             Type::Slice(t) => CheckingBaseType::Slice(self.id_from_atype(&t)),
             Type::Array(t, s) => CheckingBaseType::Array(self.id_from_atype(&t), s.clone()),
-            Type::Function(a, r) => CheckingBaseType::Function(a.iter().map(|a| self.id_from_atype(a)).collect(), self.id_from_atype(&r)),
+            Type::Function(a, r) => CheckingBaseType::Function(
+                a.iter().map(|a| self.id_from_atype(a)).collect(),
+                self.id_from_atype(&r),
+            ),
 
             Type::BuiltIn(t) => CheckingBaseType::BuiltIn(t.clone()),
 
             Type::Any => CheckingBaseType::Any,
 
             Type::Unknown(t) => todo!("unknown type {t} to CheckingType"),
-        }.expand(at.1.clone());
+        }
+        .expand(at.1.clone());
         self.id_from_type(t)
     }
 
     fn specificness_of(&self, t: usize) -> usize {
         match &self.types[t].base {
-            CheckingBaseType::Pointer(t) | CheckingBaseType::Slice(t) | CheckingBaseType::Array(t, _) => self.specificness_of(*t).saturating_sub(1),
+            CheckingBaseType::Pointer(t)
+            | CheckingBaseType::Slice(t)
+            | CheckingBaseType::Array(t, _) => self.specificness_of(*t).saturating_sub(1),
             CheckingBaseType::Error => 9000,
             CheckingBaseType::Any => 1000,
             CheckingBaseType::Integer => 12,
@@ -287,28 +328,42 @@ impl Typechecker {
     }
 
     fn types_eq(&self, l: usize, r: usize, hist: &mut Vec<(usize, usize)>) -> bool {
-        if hist.iter().find(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2)).is_some() {
+        if hist
+            .iter()
+            .find(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2))
+            .is_some()
+        {
             return false;
         }
 
         hist.push((l, r));
         struct HistPop<'a>(&'a mut Vec<(usize, usize)>);
         impl<'a> Drop for HistPop<'a> {
-            fn drop(&mut self) {
-                self.0.pop();
-            }
+            fn drop(&mut self) { self.0.pop(); }
         }
 
         let hist = HistPop(hist);
 
         match (&self.types[l].base, &self.types[r].base) {
-            (CheckingBaseType::Pointer(l), CheckingBaseType::Pointer(r)) => self.types_eq(*l, *r, hist.0),
-            (CheckingBaseType::Slice(l), CheckingBaseType::Slice(r)) => self.types_eq(*l, *r, hist.0),
-            (CheckingBaseType::Array(lt, ls), CheckingBaseType::Array(rt, rs)) => ls.0 == rs.0 && self.types_eq(*lt, *rt, hist.0),
+            (CheckingBaseType::Pointer(l), CheckingBaseType::Pointer(r)) => {
+                self.types_eq(*l, *r, hist.0)
+            },
+            (CheckingBaseType::Slice(l), CheckingBaseType::Slice(r)) => {
+                self.types_eq(*l, *r, hist.0)
+            },
+            (CheckingBaseType::Array(lt, ls), CheckingBaseType::Array(rt, rs)) => {
+                ls.0 == rs.0 && self.types_eq(*lt, *rt, hist.0)
+            },
 
             (CheckingBaseType::BuiltIn(l), CheckingBaseType::BuiltIn(r)) => l == r,
 
-            (CheckingBaseType::Function(la, lr), CheckingBaseType::Function(ra, rr)) => self.types_eq(*lr, *rr, hist.0) && la.iter().zip(ra.iter()).fold(true, |a, (b, c)| a && self.types_eq(*b, *c, hist.0)),
+            (CheckingBaseType::Function(la, lr), CheckingBaseType::Function(ra, rr)) => {
+                self.types_eq(*lr, *rr, hist.0)
+                    && la
+                        .iter()
+                        .zip(ra.iter())
+                        .fold(true, |a, (b, c)| a && self.types_eq(*b, *c, hist.0))
+            },
 
             (CheckingBaseType::Any, CheckingBaseType::Any) => true,
             (CheckingBaseType::Error, CheckingBaseType::Error) => true,
@@ -322,24 +377,35 @@ impl Typechecker {
         self._constrain_ids(l, r, &mut vec![])
     }
 
-    fn _constrain_ids(&mut self, l: usize, r: usize, hist: &mut Vec<(usize, usize)>) -> Result<(), TypeCheckError> {
-        if hist.iter().find(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2)).is_some() {
+    fn _constrain_ids(
+        &mut self,
+        l: usize,
+        r: usize,
+        hist: &mut Vec<(usize, usize)>,
+    ) -> Result<(), TypeCheckError> {
+        if hist
+            .iter()
+            .find(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2))
+            .is_some()
+        {
             self.types[l].base = CheckingBaseType::Any;
             self.types[r].base = CheckingBaseType::Any;
 
             return Err(TypeCheckError::CyclicType);
         }
 
-        let set = |s: &mut Self| if s.specificness_of(l) < s.specificness_of(r) {
-            s.types[r].base = s.types[l].base.clone();
+        let set = |s: &mut Self| {
+            if s.specificness_of(l) < s.specificness_of(r) {
+                s.types[r].base = s.types[l].base.clone();
 
-            s.types[l].is_lvalue |= s.types[r].is_lvalue;
-            s.types[r].is_lvalue |= s.types[l].is_lvalue;
-        } else {
-            s.types[l].base = s.types[r].base.clone();
+                s.types[l].is_lvalue |= s.types[r].is_lvalue;
+                s.types[r].is_lvalue |= s.types[l].is_lvalue;
+            } else {
+                s.types[l].base = s.types[r].base.clone();
 
-            s.types[l].is_lvalue |= s.types[r].is_lvalue;
-            s.types[r].is_lvalue |= s.types[l].is_lvalue;
+                s.types[l].is_lvalue |= s.types[r].is_lvalue;
+                s.types[r].is_lvalue |= s.types[l].is_lvalue;
+            }
         };
 
         if self.types_eq(l, r, hist) {
@@ -349,9 +415,7 @@ impl Typechecker {
         hist.push((l, r));
         struct HistPop<'a>(&'a mut Vec<(usize, usize)>);
         impl<'a> Drop for HistPop<'a> {
-            fn drop(&mut self) {
-                self.0.pop();
-            }
+            fn drop(&mut self) { self.0.pop(); }
         }
 
         let hist = HistPop(hist);
@@ -368,9 +432,15 @@ impl Typechecker {
                 set(self);
                 return Ok(());
             },
-            (CheckingBaseType::Pointer(l), CheckingBaseType::Pointer(r)) => return self._constrain_ids(*l, *r, hist.0),
-            (CheckingBaseType::Slice(l), CheckingBaseType::Slice(r)) => return self._constrain_ids(*l, *r, hist.0),
-            (CheckingBaseType::Array(l, ls), CheckingBaseType::Array(r, rs)) if ls == rs => return self._constrain_ids(*l, *r, hist.0),
+            (CheckingBaseType::Pointer(l), CheckingBaseType::Pointer(r)) => {
+                return self._constrain_ids(*l, *r, hist.0);
+            },
+            (CheckingBaseType::Slice(l), CheckingBaseType::Slice(r)) => {
+                return self._constrain_ids(*l, *r, hist.0);
+            },
+            (CheckingBaseType::Array(l, ls), CheckingBaseType::Array(r, rs)) if ls == rs => {
+                return self._constrain_ids(*l, *r, hist.0);
+            },
             _ => {},
         }
 
@@ -384,13 +454,18 @@ impl Typechecker {
 
         let l_anyuint = matches!(self.types[l].base, CheckingBaseType::UnsignedInteger);
         let r_anyuint = matches!(self.types[r].base, CheckingBaseType::UnsignedInteger);
-        if (l_anyuint && self.types[r].base.is_uint()) || (r_anyuint && self.types[l].base.is_uint()) {
+        if (l_anyuint && self.types[r].base.is_uint())
+            || (r_anyuint && self.types[l].base.is_uint())
+        {
             self.link(l, r);
             set(self);
             return Ok(());
         }
 
-        Err(TypeCheckError::TypeMismatch { expected: self.format_id(l), found: self.format_id(r) })
+        Err(TypeCheckError::TypeMismatch {
+            expected: self.format_id(l),
+            found: self.format_id(r),
+        })
     }
 
     fn format_id(&mut self, id: usize) -> String {
@@ -431,7 +506,12 @@ impl Typechecker {
             CheckingBaseType::Function(args, ret) => {
                 let ret = *ret;
                 acc += "(fn(";
-                acc += &args.clone().into_iter().map(|a| self.format_id(a)).collect::<Vec<String>>().join(", ");
+                acc += &args
+                    .clone()
+                    .into_iter()
+                    .map(|a| self.format_id(a))
+                    .collect::<Vec<String>>()
+                    .join(", ");
                 acc += ") -> ";
                 acc += &self.format_id(ret);
             },
@@ -453,26 +533,41 @@ impl Typechecker {
 
         hist.push(ti);
         let t = self.types[ti].clone();
-        let r = (match t.base {
-            CheckingBaseType::Pointer(t) => Type::Pointer(Box::new(self._output_type(t, marker, hist))),
-            CheckingBaseType::Slice(t) => Type::Slice(Box::new(self._output_type(t, marker, hist))),
-            CheckingBaseType::Array(t, s) => Type::Array(Box::new(self._output_type(t, marker, hist)), s.clone()),
+        let r = (
+            match t.base {
+                CheckingBaseType::Pointer(t) => {
+                    Type::Pointer(Box::new(self._output_type(t, marker, hist)))
+                },
+                CheckingBaseType::Slice(t) => {
+                    Type::Slice(Box::new(self._output_type(t, marker, hist)))
+                },
+                CheckingBaseType::Array(t, s) => {
+                    Type::Array(Box::new(self._output_type(t, marker, hist)), s.clone())
+                },
 
-            CheckingBaseType::Function(a, r) => Type::Function(a.into_iter().map(|a| self._output_type(a, marker, hist)).collect(), Box::new(self._output_type(r, marker, hist))),
+                CheckingBaseType::Function(a, r) => Type::Function(
+                    a.into_iter()
+                        .map(|a| self._output_type(a, marker, hist))
+                        .collect(),
+                    Box::new(self._output_type(r, marker, hist)),
+                ),
 
-            CheckingBaseType::BuiltIn(b) => Type::BuiltIn(b.clone()),
+                CheckingBaseType::BuiltIn(b) => Type::BuiltIn(b.clone()),
 
-            CheckingBaseType::Integer => Type::BuiltIn(BuiltInType::Int),
-            CheckingBaseType::UnsignedInteger => Type::BuiltIn(BuiltInType::Uint),
-            CheckingBaseType::Any => {
-                if !marker[ti] {
-                    self.errs.push((TypeCheckError::UnresolvedType, t.derived_from.clone()));
-                    marker[ti] = true;
-                }
-                Type::Any
+                CheckingBaseType::Integer => Type::BuiltIn(BuiltInType::Int),
+                CheckingBaseType::UnsignedInteger => Type::BuiltIn(BuiltInType::Uint),
+                CheckingBaseType::Any => {
+                    if !marker[ti] {
+                        self.errs
+                            .push((TypeCheckError::UnresolvedType, t.derived_from.clone()));
+                        marker[ti] = true;
+                    }
+                    Type::Any
+                },
+                CheckingBaseType::Error => Type::Any,
             },
-            CheckingBaseType::Error => Type::Any,
-        }, t.derived_from);
+            t.derived_from,
+        );
 
         hist.pop();
         r

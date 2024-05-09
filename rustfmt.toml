@@ -7,3 +7,5 @@ trailing_comma = "Vertical"
 match_block_trailing_comma = true
 use_field_init_shorthand = true
 wrap_comments = true
+
+version = "Two"

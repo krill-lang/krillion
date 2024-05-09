@@ -203,7 +203,15 @@ impl std::fmt::Display for Type {
             Unknown(t) => write!(f, "{t}"),
             Any => write!(f, "_"),
             Function(args, ret) => {
-                write!(f, "(fn({}) -> {}", args.iter().map(|a| a.0.to_string()).collect::<Vec<String>>().join(","), ret.0)?;
+                write!(
+                    f,
+                    "(fn({}) -> {}",
+                    args.iter()
+                        .map(|a| a.0.to_string())
+                        .collect::<Vec<String>>()
+                        .join(","),
+                    ret.0
+                )?;
 
                 Ok(())
             },

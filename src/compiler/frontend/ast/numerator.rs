@@ -19,15 +19,14 @@ pub fn numerate(ast: UntypedAst) -> ((NumeratedAst, usize), Errors) {
         index: 0,
     };
 
-    ((numerator.numerate(ast, HashMap::new()), numerator.index), numerator.errs)
+    (
+        (numerator.numerate(ast, HashMap::new()), numerator.index),
+        numerator.errs,
+    )
 }
 
 impl Numerator {
-    fn numerate(
-        &mut self,
-        ast: UntypedAst,
-        mut idents: HashMap<String, usize>,
-    ) -> NumeratedAst {
+    fn numerate(&mut self, ast: UntypedAst, mut idents: HashMap<String, usize>) -> NumeratedAst {
         self.resolve_globals(&ast, &mut idents);
 
         let mut new = NumeratedAst::with_capacity(ast.len());
@@ -252,12 +251,10 @@ impl Numerator {
         idents: &HashMap<String, usize>,
     ) -> NIdent {
         if ident.len() == 1 {
-            let id = *idents
-                .get(&ident[0].0)
-                .unwrap_or_else(|| {
-                    self.errs.push((NumerateError::NameUndefined, span.clone()));
-                    &0
-                });
+            let id = *idents.get(&ident[0].0).unwrap_or_else(|| {
+                self.errs.push((NumerateError::NameUndefined, span.clone()));
+                &0
+            });
 
             (ident, id)
         } else {
