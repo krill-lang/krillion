@@ -159,12 +159,13 @@ impl Typechecker {
                         self.id_from_type(CheckingBaseType::BuiltIn(BuiltInType::Unit).expand(n.span.clone()))
                     };
 
+                    self.link(ret, id);
                     self.link(id, ret);
                 } else {
                     self.errs.push((TypeCheckError::UnexpectedReturn, n.span.clone()));
                 }
             },
-            NodeKind::FunctionDeclare { vis, link, ident, params, return_type, body, span } => {
+            NodeKind::FunctionDeclare { ident, params, return_type, body, span, .. } => {
                 let mut p = Vec::with_capacity(params.len());
                 for a in params.iter() {
                     let t = self.id_from_atype(&a.1);
@@ -173,7 +174,7 @@ impl Typechecker {
                 }
 
                 let r = self.id_from_atype(return_type);
-                let f = self.id_from_type(CheckingBaseType::Function(p, r).expand(n.span.clone()));
+                let f = self.id_from_type(CheckingBaseType::Function(p, r).expand(span.clone()));
                 self.link(ident.1.1, f);
 
                 // TODO: check return type
@@ -201,7 +202,7 @@ impl Typechecker {
                 self.typecheck_expr(opr);
                 let pi =
                     self.id_from_type(CheckingBaseType::Pointer(expr.1.1).expand(expr.1.0.clone()));
-                self.link(opr.1.1, pi);
+                self.link(pi, opr.1.1);
                 self.set_lvalue(expr.1.1);
             },
             Expr::UnOp {
@@ -216,6 +217,7 @@ impl Typechecker {
             Expr::UnOp { opr, .. } => {
                 self.typecheck_expr(opr);
                 self.link(expr.1.1, opr.1.1);
+                self.link(opr.1.1, expr.1.1);
             },
             Expr::BiOp {
                 lhs,
@@ -278,7 +280,9 @@ impl Typechecker {
                 self.typecheck_expr(&lhs);
                 self.typecheck_expr(&rhs);
                 self.link(lhs.1.1, rhs.1.1);
+                self.link(rhs.1.1, lhs.1.1);
                 self.link(expr.1.1, lhs.1.1);
+                self.link(lhs.1.1, expr.1.1);
             },
             Expr::FnCall { id, op } => {
                 let mut a = Vec::with_capacity(op.len());
@@ -291,8 +295,8 @@ impl Typechecker {
 
                 let t = self.id_from_type(CheckingBaseType::Function(a, expr.1.1).expand(expr.1.0.clone()));
                 self.link(t, id.1.1);
+                self.link(id.1.1, t);
             },
-            _ => todo!("{expr:?}"),
         }
     }
 }
@@ -538,8 +542,8 @@ impl Typechecker {
         }
 
         Err(TypeCheckError::TypeMismatch {
-            expected: self.format_id(l),
-            found: self.format_id(r),
+            expected: self.format_id(hist.0[0].0),
+            found: self.format_id(hist.0[0].1),
         })
     }
 

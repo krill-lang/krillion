@@ -325,7 +325,7 @@ impl CompilerError for TypeCheckError {
                 format!("mismatched types (expecting `{expected}`, found `{found}`)")
             },
             Self::ExpectedLvalue => "expected lvalue".to_string(),
-            Self::RequiredBecauseOf => "this type is required because of this".to_string(),
+            Self::RequiredBecauseOf => "expecting type is required because of this".to_string(),
             Self::CyclicType => "cyclic type".to_string(),
             Self::UnexpectedReturn => "unexpected return".to_string(),
         }

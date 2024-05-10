@@ -30,10 +30,6 @@
 // 	// let b u16 = a
 // }
 
-fn a() int {
-	return b() + 1
-}
-
-fn b() uint {
-	return 0
+fn a() _ {
+	return a
 }
