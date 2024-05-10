@@ -18,7 +18,7 @@ pub type AString = Annotated<String>;
 pub type AIdent = Ident<AString>;
 
 pub type NExpr = ANumerated<Expr<ANumeration, NIdent>>;
-pub type NType = ANumerated<Type>;
+// pub type NType = ANumerated<Type>;
 pub type NString = ANumerated<String>;
 pub type NIdent = Numerated<Ident<AString>>;
 
@@ -29,5 +29,5 @@ pub type UntypedNode = NodeKind<AExpr, AString>;
 pub type NumeratedAst = Ast<NumeratedNode>;
 pub type NumeratedNode = NodeKind<NExpr, NString>;
 
-pub type TypedAst = Ast<TypedNode>;
-pub type TypedNode = NodeKind<(AExpr, Type), NString>;
+// pub type TypedAst = Ast<TypedNode>;
+// pub type TypedNode = NodeKind<(AExpr, Type), NString>;

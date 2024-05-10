@@ -83,6 +83,7 @@ fn report_single<E: CompilerError>(
 
     let start = ctx.source[..span.start].matches('\n').count() + 1;
     let end = ctx.source[..span.end.saturating_sub(1)]
+        .trim()
         .matches('\n')
         .count()
         + 1;
@@ -127,15 +128,15 @@ fn report_single<E: CompilerError>(
         .take(lines + 1)
     {
         let i = i + 1;
-        if end - start >= 6 && start + 3 == i {
-            let omitted = end - start - 5;
+        if end - start >= 2 && start + 1 == i {
+            let omitted = end - start - 1;
             writeln!(
                 fin,
                 "\x1b[90m({omitted} line{} omitted)",
                 if omitted > 1 { "s" } else { "" }
             )?;
         }
-        if end - start >= 6 && (start + 3..=end.saturating_sub(3)).contains(&i) {
+        if end - start >= 2 && (start + 1..=end.saturating_sub(1)).contains(&i) {
             continue;
         }
 

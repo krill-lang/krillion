@@ -45,11 +45,7 @@ impl Numerator {
                     typ,
                     expr,
                 } => {
-                    let expr = if let Some(expr) = expr {
-                        Some(self.numerate_expr(expr, &idents))
-                    } else {
-                        None
-                    };
+                    let expr = expr.map(|expr| self.numerate_expr(expr, &idents));
 
                     let id = self.assign();
                     idents.insert(ident.0.clone(), id);
@@ -202,11 +198,8 @@ impl Numerator {
 
     fn resolve_globals(&mut self, ast: &UntypedAst, idents: &mut HashMap<String, usize>) {
         for n in ast.iter() {
-            match &n.kind {
-                NodeKind::FunctionDeclare { ident, .. } => {
-                    idents.insert(ident.0.clone(), self.assign());
-                },
-                _ => {},
+            if let NodeKind::FunctionDeclare { ident, .. } = &n.kind {
+                idents.insert(ident.0.clone(), self.assign());
             }
         }
     }

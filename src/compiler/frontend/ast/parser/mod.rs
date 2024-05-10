@@ -18,7 +18,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-#[macro_export]
+/* #[macro_export]
 macro_rules! consider_error {
     ($expr: expr, $self: expr) => {
         match $expr {
@@ -29,7 +29,7 @@ macro_rules! consider_error {
             Ok(a) => a,
         }
     };
-}
+} */
 
 #[macro_export]
 macro_rules! unwrap_or_return_set_buf {
@@ -119,4 +119,4 @@ macro_rules! assert_token {
     };
 }
 
-pub use {assert_token, consider_error, error, unwrap_ident, unwrap_or_return_set_buf};
+pub use {assert_token, /* consider_error, */ error, unwrap_ident, unwrap_or_return_set_buf};
