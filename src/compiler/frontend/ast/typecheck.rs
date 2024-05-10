@@ -141,13 +141,17 @@ impl Typechecker {
                 }
 
                 self.typecheck_expr(&main.0);
-                let b = self.id_from_type(CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()));
+                let b = self.id_from_type(
+                    CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()),
+                );
                 self.link(main.0.1.1, b);
             },
             NodeKind::While { cond, body } => {
                 self.typecheck_node(body, ret);
                 self.typecheck_expr(cond);
-                let b = self.id_from_type(CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()));
+                let b = self.id_from_type(
+                    CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()),
+                );
                 self.link(b, cond.1.1);
             },
             NodeKind::Return(expr) => {
@@ -156,16 +160,26 @@ impl Typechecker {
                         self.typecheck_expr(expr);
                         expr.1.1
                     } else {
-                        self.id_from_type(CheckingBaseType::BuiltIn(BuiltInType::Unit).expand(n.span.clone()))
+                        self.id_from_type(
+                            CheckingBaseType::BuiltIn(BuiltInType::Unit).expand(n.span.clone()),
+                        )
                     };
 
                     self.link(ret, id);
                     self.link(id, ret);
                 } else {
-                    self.errs.push((TypeCheckError::UnexpectedReturn, n.span.clone()));
+                    self.errs
+                        .push((TypeCheckError::UnexpectedReturn, n.span.clone()));
                 }
             },
-            NodeKind::FunctionDeclare { ident, params, return_type, body, span, .. } => {
+            NodeKind::FunctionDeclare {
+                ident,
+                params,
+                return_type,
+                body,
+                span,
+                ..
+            } => {
                 let mut p = Vec::with_capacity(params.len());
                 for a in params.iter() {
                     let t = self.id_from_atype(&a.1);
@@ -293,7 +307,8 @@ impl Typechecker {
 
                 self.typecheck_expr(id);
 
-                let t = self.id_from_type(CheckingBaseType::Function(a, expr.1.1).expand(expr.1.0.clone()));
+                let t = self
+                    .id_from_type(CheckingBaseType::Function(a, expr.1.1).expand(expr.1.0.clone()));
                 self.link(t, id.1.1);
                 self.link(id.1.1, t);
             },
@@ -332,18 +347,22 @@ impl CheckingBaseType {
     const fn is_int(&self) -> bool {
         use BuiltInType::*;
         use CheckingBaseType::*;
-        matches!(self,
-            Any
-            | Error
-            | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128 | Int | Uint)
-            | Integer
-            | UnsignedInteger)
+        matches!(
+            self,
+            Any | Error
+                | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128 | Int | Uint)
+                | Integer
+                | UnsignedInteger
+        )
     }
 
     const fn is_uint(&self) -> bool {
         use BuiltInType::*;
         use CheckingBaseType::*;
-        matches!(self, Any | Error | BuiltIn(U8 | U16 | U32 | U64 | U128 | Uint) | UnsignedInteger)
+        matches!(
+            self,
+            Any | Error | BuiltIn(U8 | U16 | U32 | U64 | U128 | Uint) | UnsignedInteger
+        )
     }
 
     fn expand(self, from: Span) -> CheckingType {
@@ -505,11 +524,18 @@ impl Typechecker {
             (CheckingBaseType::Array(l, ls), CheckingBaseType::Array(r, rs)) if ls == rs => {
                 return self._constrain_ids(*l, *r, hist.0);
             },
-            (CheckingBaseType::Function(lp, la), CheckingBaseType::Function(rp, ra)) if lp.len() == rp.len() => {
+            (CheckingBaseType::Function(lp, la), CheckingBaseType::Function(rp, ra))
+                if lp.len() == rp.len() =>
+            {
                 let la = *la;
                 let ra = *ra;
-                return lp.clone().into_iter().zip(rp.clone()).try_fold((), |_, (b, c)| self._constrain_ids(b, c, hist.0)).and_then(|()| self._constrain_ids(la, ra, hist.0));
-            }
+                return lp
+                    .clone()
+                    .into_iter()
+                    .zip(rp.clone())
+                    .try_fold((), |_, (b, c)| self._constrain_ids(b, c, hist.0))
+                    .and_then(|()| self._constrain_ids(la, ra, hist.0));
+            },
             _ => {},
         }
 
@@ -592,9 +618,7 @@ impl Typechecker {
         acc
     }
 
-    fn output_type(&mut self, ti: usize) -> AType {
-        self._output_type(ti, &mut vec![])
-    }
+    fn output_type(&mut self, ti: usize) -> AType { self._output_type(ti, &mut vec![]) }
 
     fn _output_type(&mut self, ti: usize, hist: &mut Vec<usize>) -> AType {
         if hist.contains(&ti) {
@@ -605,20 +629,14 @@ impl Typechecker {
         let t = self.types[ti].clone();
         let r = (
             match t.base {
-                CheckingBaseType::Pointer(t) => {
-                    Type::Pointer(Box::new(self._output_type(t, hist)))
-                },
-                CheckingBaseType::Slice(t) => {
-                    Type::Slice(Box::new(self._output_type(t, hist)))
-                },
+                CheckingBaseType::Pointer(t) => Type::Pointer(Box::new(self._output_type(t, hist))),
+                CheckingBaseType::Slice(t) => Type::Slice(Box::new(self._output_type(t, hist))),
                 CheckingBaseType::Array(t, s) => {
                     Type::Array(Box::new(self._output_type(t, hist)), s)
                 },
 
                 CheckingBaseType::Function(a, r) => Type::Function(
-                    a.into_iter()
-                        .map(|a| self._output_type(a, hist))
-                        .collect(),
+                    a.into_iter().map(|a| self._output_type(a, hist)).collect(),
                     Box::new(self._output_type(r, hist)),
                 ),
 
