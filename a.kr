@@ -25,18 +25,18 @@
 // c = 1
 
 // fn a(b _) {
-// 	// b = a
-// 	// let a u8
-// 	// let b u16 = a
+//     // b = a
+//     // let a u8
+//     // let b u16 = a
 // }
 
 let true = 0 == 0
 let false = true
 
 fn a(cond1 _, cond2 _) {
-	while cond1 {
-		if cond1 {
-		} else if cond2 {
-		}
-	}
+    while cond1 {
+        if cond1 {
+        } else if cond2 {
+        }
+    }
 }
