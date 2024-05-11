@@ -159,7 +159,13 @@ impl Operator {
     pub const fn is_left(&self) -> bool {
         !matches!(
             self,
-            Self::Assign | Self::OpAssign(_) | Self::Plus | Self::Minus | Self::Deref | Self::Ref | Self::Not
+            Self::Assign
+                | Self::OpAssign(_)
+                | Self::Plus
+                | Self::Minus
+                | Self::Deref
+                | Self::Ref
+                | Self::Not
         )
     }
 
@@ -177,7 +183,10 @@ impl Operator {
     pub const fn is_binary(&self) -> bool { !self.is_unary() }
 
     pub const fn is_unary(&self) -> bool {
-        matches!(self, Self::Plus | Self::Minus | Self::Deref | Self::Ref | Self::Not)
+        matches!(
+            self,
+            Self::Plus | Self::Minus | Self::Deref | Self::Ref | Self::Not
+        )
     }
 
     pub const fn break_down(&self) -> Option<&'static [Self]> {

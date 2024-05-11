@@ -38,7 +38,11 @@ impl Numerator {
         new
     }
 
-    fn numerate_single(&mut self, n: Node<UntypedNode>, idents: &mut HashMap<String, usize>) -> Node<NumeratedNode> {
+    fn numerate_single(
+        &mut self,
+        n: Node<UntypedNode>,
+        idents: &mut HashMap<String, usize>,
+    ) -> Node<NumeratedNode> {
         match n.kind {
             NodeKind::Expr(expr) => Node {
                 kind: NodeKind::Expr(self.numerate_expr(expr, &idents)),
@@ -115,22 +119,18 @@ impl Numerator {
                     extra: n.extra,
                 }
             },
-            NodeKind::Return(expr) => {
-                Node {
-                    kind: NodeKind::Return(expr.map(|expr| self.numerate_expr(expr, &idents))),
-                    span: n.span,
-                    extra: n.extra,
-                }
+            NodeKind::Return(expr) => Node {
+                kind: NodeKind::Return(expr.map(|expr| self.numerate_expr(expr, &idents))),
+                span: n.span,
+                extra: n.extra,
             },
-            NodeKind::Scope { body, span } => {
-                Node {
-                    kind: NodeKind::Scope {
-                        body: self.numerate(body, idents.clone()),
-                        span,
-                    },
-                    span: n.span,
-                    extra: n.extra,
-                }
+            NodeKind::Scope { body, span } => Node {
+                kind: NodeKind::Scope {
+                    body: self.numerate(body, idents.clone()),
+                    span,
+                },
+                span: n.span,
+                extra: n.extra,
             },
             NodeKind::While { cond, body } => {
                 let (kb, ks) = match body.kind {
@@ -174,21 +174,19 @@ impl Numerator {
                             }),
                             main.2,
                         ),
-                        els: els.map(|els| {
-                            match els.0.kind {
-                                NodeKind::Scope { body, span } =>  (
-                                    Box::new(Node {
-                                        kind: NodeKind::Scope {
-                                            body: self.numerate(body, idents.clone()),
-                                            span,
-                                        },
-                                        span: els.0.span,
-                                        extra: els.0.extra,
-                                    }),
-                                    els.1,
-                                ),
-                                _ => (Box::new(self.numerate_single(*els.0, idents)), els.1),
-                            }
+                        els: els.map(|els| match els.0.kind {
+                            NodeKind::Scope { body, span } => (
+                                Box::new(Node {
+                                    kind: NodeKind::Scope {
+                                        body: self.numerate(body, idents.clone()),
+                                        span,
+                                    },
+                                    span: els.0.span,
+                                    extra: els.0.extra,
+                                }),
+                                els.1,
+                            ),
+                            _ => (Box::new(self.numerate_single(*els.0, idents)), els.1),
                         }),
                     },
                     span: n.span,
