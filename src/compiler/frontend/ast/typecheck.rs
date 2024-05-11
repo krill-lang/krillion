@@ -135,24 +135,24 @@ impl Typechecker {
             NodeKind::Expr(expr) => self.typecheck_expr(expr),
             NodeKind::Scope { body, .. } => self.typecheck_ast(body, ret),
             NodeKind::If { main, els } => {
-                self.typecheck_node(&main.1, ret);
-                if let Some(els) = els {
-                    self.typecheck_node(&els.0, ret);
-                }
-
                 self.typecheck_expr(&main.0);
                 let b = self.id_from_type(
                     CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()),
                 );
-                self.link(main.0.1.1, b);
+                self.link(b, main.0.1.1);
+
+                self.typecheck_node(&main.1, ret);
+                if let Some(els) = els {
+                    self.typecheck_node(&els.0, ret);
+                }
             },
             NodeKind::While { cond, body } => {
-                self.typecheck_node(body, ret);
                 self.typecheck_expr(cond);
                 let b = self.id_from_type(
                     CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()),
                 );
                 self.link(b, cond.1.1);
+                self.typecheck_node(body, ret);
             },
             NodeKind::Return(expr) => {
                 if let Some(ret) = ret {

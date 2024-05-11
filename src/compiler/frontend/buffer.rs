@@ -41,7 +41,7 @@ impl<A> Buffer<A> {
 }
 
 use super::*;
-pub fn to_atoken_buf<'a, A: Logos<'a>>(
+pub fn to_atoken_buf<'a, A: Logos<'a> + std::fmt::Debug>(
     lex: &'a mut Lexer<'a, A>,
 ) -> (Buffer<(A, Span)>, Vec<AError<LexerError>>) {
     let mut buf = Buffer::empty();

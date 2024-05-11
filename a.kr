@@ -30,6 +30,13 @@
 // 	// let b u16 = a
 // }
 
-fn a() _ {
-	return a
+let true = 0 == 0
+let false = true
+
+fn a(cond1 _, cond2 _) {
+	while cond1 {
+		if cond1 {
+		} else if cond2 {
+		}
+	}
 }

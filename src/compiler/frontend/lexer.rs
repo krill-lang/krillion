@@ -141,7 +141,7 @@ pub enum Operator {
 impl Operator {
     pub const fn percedence(&self) -> usize {
         match self {
-            Self::Plus | Self::Minus | Self::Deref | Self::Ref => 15,
+            Self::Plus | Self::Minus | Self::Deref | Self::Ref | Self::Not | Self::Index => 15,
             Self::Mlt | Self::Div | Self::Mod => 12,
             Self::Add | Self::Sub => 11,
             Self::LSh | Self::RSh => 10,
@@ -153,14 +153,13 @@ impl Operator {
             Self::AndAnd => 4,
             Self::OrOr => 3,
             Self::Assign | Self::OpAssign(_) => 1,
-            _ => todo!(),
         }
     }
 
     pub const fn is_left(&self) -> bool {
         !matches!(
             self,
-            Self::Assign | Self::OpAssign(_) | Self::Plus | Self::Minus | Self::Deref | Self::Ref
+            Self::Assign | Self::OpAssign(_) | Self::Plus | Self::Minus | Self::Deref | Self::Ref | Self::Not
         )
     }
 
@@ -170,6 +169,7 @@ impl Operator {
             Self::Sub => Some(Self::Minus),
             Self::Mlt => Some(Self::Deref),
             Self::And => Some(Self::Ref),
+            Self::Not => Some(Self::Not),
             _ => None,
         }
     }
@@ -177,7 +177,7 @@ impl Operator {
     pub const fn is_binary(&self) -> bool { !self.is_unary() }
 
     pub const fn is_unary(&self) -> bool {
-        matches!(self, Self::Plus | Self::Minus | Self::Deref | Self::Ref)
+        matches!(self, Self::Plus | Self::Minus | Self::Deref | Self::Ref | Self::Not)
     }
 
     pub const fn break_down(&self) -> Option<&'static [Self]> {

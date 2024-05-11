@@ -32,168 +32,170 @@ impl Numerator {
         let mut new = NumeratedAst::with_capacity(ast.len());
 
         for n in ast.into_iter() {
-            match n.kind {
-                NodeKind::Expr(expr) => new.push(Node {
-                    kind: NodeKind::Expr(self.numerate_expr(expr, &idents)),
+            new.push(self.numerate_single(n, &mut idents));
+        }
+
+        new
+    }
+
+    fn numerate_single(&mut self, n: Node<UntypedNode>, idents: &mut HashMap<String, usize>) -> Node<NumeratedNode> {
+        match n.kind {
+            NodeKind::Expr(expr) => Node {
+                kind: NodeKind::Expr(self.numerate_expr(expr, &idents)),
+                span: n.span,
+                extra: n.extra,
+            },
+            NodeKind::VarDeclare {
+                vis,
+                link,
+                ident,
+                typ,
+                expr,
+            } => {
+                let expr = expr.map(|expr| self.numerate_expr(expr, &idents));
+
+                let id = self.assign();
+                idents.insert(ident.0.clone(), id);
+
+                Node {
+                    kind: NodeKind::VarDeclare {
+                        vis,
+                        link,
+
+                        ident: (ident.0, (ident.1, id)),
+                        typ, // TODO:
+                        expr,
+                    },
                     span: n.span,
                     extra: n.extra,
-                }),
-                NodeKind::VarDeclare {
-                    vis,
-                    link,
-                    ident,
-                    typ,
-                    expr,
-                } => {
-                    let expr = expr.map(|expr| self.numerate_expr(expr, &idents));
+                }
+            },
+            NodeKind::FunctionDeclare {
+                vis,
+                link,
+                ident,
+                params,
+                return_type,
+                body,
+                span,
+            } => {
+                let (kb, ks) = match body.kind {
+                    NodeKind::Scope { body, span } => (body, span),
+                    _ => unreachable!(),
+                };
 
-                    let id = self.assign();
-                    idents.insert(ident.0.clone(), id);
+                let mut new_params = Vec::with_capacity(params.len());
+                let mut inner_idents = idents.clone();
+                for p in params.into_iter() {
+                    let p_id = self.assign();
+                    new_params.push(((p.0.0.clone(), (p.0.1, p_id)), p.1, p.2));
+                    inner_idents.insert(p.0.0, p_id);
+                }
 
-                    new.push(Node {
-                        kind: NodeKind::VarDeclare {
-                            vis,
-                            link,
+                let ident_id = *idents.get(&ident.0).unwrap();
 
-                            ident: (ident.0, (ident.1, id)),
-                            typ, // TODO:
-                            expr,
-                        },
-                        span: n.span,
-                        extra: n.extra,
-                    });
-                },
-                NodeKind::FunctionDeclare {
-                    vis,
-                    link,
-                    ident,
-                    params,
-                    return_type,
-                    body,
-                    span,
-                } => {
-                    let (kb, ks) = match body.kind {
-                        NodeKind::Scope { body, span } => (body, span),
-                        _ => unreachable!(),
-                    };
+                Node {
+                    kind: NodeKind::FunctionDeclare {
+                        vis,
+                        link,
+                        ident: (ident.0, (ident.1, ident_id)),
+                        params: new_params,
+                        return_type,
+                        span,
+                        body: Box::new(Node {
+                            kind: NodeKind::Scope {
+                                body: self.numerate(kb, inner_idents),
+                                span: ks,
+                            },
+                            span: body.span,
+                            extra: body.extra,
+                        }),
+                    },
+                    span: n.span,
+                    extra: n.extra,
+                }
+            },
+            NodeKind::Return(expr) => {
+                Node {
+                    kind: NodeKind::Return(expr.map(|expr| self.numerate_expr(expr, &idents))),
+                    span: n.span,
+                    extra: n.extra,
+                }
+            },
+            NodeKind::Scope { body, span } => {
+                Node {
+                    kind: NodeKind::Scope {
+                        body: self.numerate(body, idents.clone()),
+                        span,
+                    },
+                    span: n.span,
+                    extra: n.extra,
+                }
+            },
+            NodeKind::While { cond, body } => {
+                let (kb, ks) = match body.kind {
+                    NodeKind::Scope { body, span } => (body, span),
+                    _ => unreachable!(),
+                };
 
-                    let mut new_params = Vec::with_capacity(params.len());
-                    let mut inner_idents = idents.clone();
-                    for p in params.into_iter() {
-                        let p_id = self.assign();
-                        new_params.push(((p.0.0.clone(), (p.0.1, p_id)), p.1, p.2));
-                        inner_idents.insert(p.0.0, p_id);
-                    }
+                Node {
+                    kind: NodeKind::While {
+                        cond: self.numerate_expr(cond, &idents),
+                        body: Box::new(Node {
+                            kind: NodeKind::Scope {
+                                body: self.numerate(kb, idents.clone()),
+                                span: ks,
+                            },
+                            span: body.span,
+                            extra: body.extra,
+                        }),
+                    },
+                    span: n.span,
+                    extra: n.extra,
+                }
+            },
+            NodeKind::If { main, els } => {
+                let (mb, ms) = match main.1.kind {
+                    NodeKind::Scope { body, span } => (body, span),
+                    _ => unreachable!(),
+                };
 
-                    let ident_id = *idents.get(&ident.0).unwrap();
-
-                    new.push(Node {
-                        kind: NodeKind::FunctionDeclare {
-                            vis,
-                            link,
-                            ident: (ident.0, (ident.1, ident_id)),
-                            params: new_params,
-                            return_type,
-                            span,
-                            body: Box::new(Node {
+                Node {
+                    kind: NodeKind::If {
+                        main: (
+                            self.numerate_expr(main.0, &idents),
+                            Box::new(Node {
                                 kind: NodeKind::Scope {
-                                    body: self.numerate(kb, inner_idents),
-                                    span: ks,
+                                    body: self.numerate(mb, idents.clone()),
+                                    span: ms,
                                 },
-                                span: body.span,
-                                extra: body.extra,
+                                span: main.1.span,
+                                extra: main.1.extra,
                             }),
-                        },
-                        span: n.span,
-                        extra: n.extra,
-                    });
-                },
-                NodeKind::Return(expr) => {
-                    new.push(Node {
-                        kind: NodeKind::Return(expr.map(|expr| self.numerate_expr(expr, &idents))),
-                        span: n.span,
-                        extra: n.extra,
-                    });
-                },
-                NodeKind::Scope { body, span } => {
-                    new.push(Node {
-                        kind: NodeKind::Scope {
-                            body: self.numerate(body, idents.clone()),
-                            span,
-                        },
-                        span: n.span,
-                        extra: n.extra,
-                    });
-                },
-                NodeKind::While { cond, body } => {
-                    let (kb, ks) = match body.kind {
-                        NodeKind::Scope { body, span } => (body, span),
-                        _ => unreachable!(),
-                    };
-
-                    new.push(Node {
-                        kind: NodeKind::While {
-                            cond: self.numerate_expr(cond, &idents),
-                            body: Box::new(Node {
-                                kind: NodeKind::Scope {
-                                    body: self.numerate(kb, idents.clone()),
-                                    span: ks,
-                                },
-                                span: body.span,
-                                extra: body.extra,
-                            }),
-                        },
-                        span: n.span,
-                        extra: n.extra,
-                    });
-                },
-                NodeKind::If { main, els } => {
-                    let (mb, ms) = match main.1.kind {
-                        NodeKind::Scope { body, span } => (body, span),
-                        _ => unreachable!(),
-                    };
-
-                    new.push(Node {
-                        kind: NodeKind::If {
-                            main: (
-                                self.numerate_expr(main.0, &idents),
-                                Box::new(Node {
-                                    kind: NodeKind::Scope {
-                                        body: self.numerate(mb, idents.clone()),
-                                        span: ms,
-                                    },
-                                    span: main.1.span,
-                                    extra: main.1.extra,
-                                }),
-                                main.2,
-                            ),
-                            els: els.map(|els| {
-                                let (eb, es) = match els.0.kind {
-                                    NodeKind::Scope { body, span } => (body, span),
-                                    _ => unreachable!(),
-                                };
-
-                                (
+                            main.2,
+                        ),
+                        els: els.map(|els| {
+                            match els.0.kind {
+                                NodeKind::Scope { body, span } =>  (
                                     Box::new(Node {
                                         kind: NodeKind::Scope {
-                                            body: self.numerate(eb, idents.clone()),
-                                            span: es,
+                                            body: self.numerate(body, idents.clone()),
+                                            span,
                                         },
                                         span: els.0.span,
                                         extra: els.0.extra,
                                     }),
                                     els.1,
-                                )
-                            }),
-                        },
-                        span: n.span,
-                        extra: n.extra,
-                    });
-                },
-            }
+                                ),
+                                _ => (Box::new(self.numerate_single(*els.0, idents)), els.1),
+                            }
+                        }),
+                    },
+                    span: n.span,
+                    extra: n.extra,
+                }
+            },
         }
-
-        new
     }
 
     fn resolve_globals(&mut self, ast: &UntypedAst, idents: &mut HashMap<String, usize>) {
