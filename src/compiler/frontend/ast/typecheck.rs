@@ -59,10 +59,6 @@ impl Typechecker {
                     self.types[*i].base = CheckingBaseType::Error;
 
                     self.errs.push((e, self.types[*i].derived_from.clone()));
-                    self.errs.push((
-                        TypeCheckError::RequiredBecauseOf,
-                        self.types[id].derived_from.clone(),
-                    ));
                 },
             }
         }
@@ -270,7 +266,7 @@ impl Typechecker {
                 let b = self.id_from_type(
                     CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(expr.1.0.clone()),
                 );
-                self.link(expr.1.1, b);
+                self.link(b, expr.1.1);
             },
             Expr::BiOp {
                 lhs,
@@ -282,11 +278,11 @@ impl Typechecker {
 
                 let a =
                     self.id_from_type(CheckingBaseType::Slice(expr.1.1).expand(expr.1.0.clone()));
-                self.link(lhs.1.1, a);
+                self.link(a, lhs.1.1);
 
                 let u =
                     self.id_from_type(CheckingBaseType::UnsignedInteger.expand(expr.1.0.clone()));
-                self.link(rhs.1.1, u);
+                self.link(u, rhs.1.1);
 
                 self.set_lvalue(expr.1.1);
             },
@@ -310,7 +306,6 @@ impl Typechecker {
                 let t = self
                     .id_from_type(CheckingBaseType::Function(a, expr.1.1).expand(expr.1.0.clone()));
                 self.link(t, id.1.1);
-                self.link(id.1.1, t);
             },
         }
     }
@@ -560,6 +555,7 @@ impl Typechecker {
         Err(TypeCheckError::TypeMismatch {
             expected: self.format_id(hist.0[0].0),
             found: self.format_id(hist.0[0].1),
+            because: self.types[hist.0[0].0].derived_from.clone(),
         })
     }
 
@@ -584,8 +580,6 @@ impl Typechecker {
             },
             CheckingBaseType::Slice(t) => {
                 acc += "[";
-                // acc += &t.to_string();
-                // acc += " ";
                 acc += &self.format_id(*t);
                 acc += "]";
             },
@@ -593,7 +587,7 @@ impl Typechecker {
                 let s = s.0;
                 acc += "[";
                 acc += &self.format_id(*t);
-                acc += &format!(" * {}]", s);
+                acc += &format!(" * {s}]");
             },
             CheckingBaseType::BuiltIn(b) => acc += &b.to_string(),
             CheckingBaseType::Any => acc += "_",
@@ -607,7 +601,7 @@ impl Typechecker {
                     .map(|a| self.format_id(a))
                     .collect::<Vec<String>>()
                     .join(", ");
-                acc += ") -> ";
+                acc += ") ";
                 acc += &self.format_id(ret);
                 acc += ")";
             },

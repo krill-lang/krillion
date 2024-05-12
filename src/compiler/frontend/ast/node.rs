@@ -136,60 +136,6 @@ impl Type {
             _ => Unknown(s.to_string()),
         }
     }
-
-    /*
-    pub fn is_integer(&self) -> bool {
-        use BuiltInType::*;
-        use TypeKind::*;
-        match self {
-            Any
-            | BuiltIn(I8 | U8 | I16 | U16 | I32 | U32 | I64 | U64 | I128 | U128 | Int | Uint)
-            | Integer | UnsignedInteger => true,
-            _ => false,
-        }
-    }
-
-    pub fn specificness(&self) -> usize {
-        match self {
-            Self::Pointer(t) | Self::Slice(t) | Self::Array(t, _) => t.0.specificness().saturating_sub(1),
-            Self::Any => 1000,
-            Self::Integer => 12,
-            Self::UnsignedInteger => 6,
-            _ => 1,
-        }
-    }
-
-    pub fn constrain(&self, other: &TypeKind) -> Result<TypeKind, TypeCheckError> {
-        if self == other {
-            return Ok(other.clone());
-        }
-
-        match (self, other) {
-            (Self::Any, _) => return Ok(other.clone()),
-            (_, Self::Any) => return Ok(self.clone()),
-            (Self::LValue(t), _) => return t.constrain(other),
-            (_, Self::LValue(t)) => return self.constrain(t),
-            (Self::Pointer(l), Self::Pointer(r)) => return l.0.constrain(&r.0),
-            (Self::Slice(l), Self::Slice(r)) => return l.0.constrain(&r.0),
-            (Self::Array(l, ls), Self::Array(r, rs)) if ls == rs => return l.0.constrain(&r.0),
-            _ => {},
-        }
-
-        let l_anyint = matches!(self, TypeKind::Integer);
-        let r_anyint = matches!(other, TypeKind::Integer);
-        if (l_anyint && other.is_integer()) || (r_anyint && self.is_integer()) {
-            return Ok(if self.specificness() < other.specificness() {
-                self.clone()
-            } else {
-                other.clone()
-            })
-        }
-
-        // TODO: check unsigned
-
-        Err(TypeCheckError::TypeMismatch { expected: self.clone(), found: other.clone() })
-    }
-    */
 }
 
 impl std::fmt::Display for Type {
@@ -205,7 +151,7 @@ impl std::fmt::Display for Type {
             Function(args, ret) => {
                 write!(
                     f,
-                    "(fn({}) -> {}",
+                    "(fn({}) {}",
                     args.iter()
                         .map(|a| a.0.to_string())
                         .collect::<Vec<String>>()

@@ -45,7 +45,7 @@ impl Numerator {
     ) -> Node<NumeratedNode> {
         match n.kind {
             NodeKind::Expr(expr) => Node {
-                kind: NodeKind::Expr(self.numerate_expr(expr, &idents)),
+                kind: NodeKind::Expr(self.numerate_expr(expr, idents)),
                 span: n.span,
                 extra: n.extra,
             },
@@ -56,7 +56,7 @@ impl Numerator {
                 typ,
                 expr,
             } => {
-                let expr = expr.map(|expr| self.numerate_expr(expr, &idents));
+                let expr = expr.map(|expr| self.numerate_expr(expr, idents));
 
                 let id = self.assign();
                 idents.insert(ident.0.clone(), id);
@@ -120,7 +120,7 @@ impl Numerator {
                 }
             },
             NodeKind::Return(expr) => Node {
-                kind: NodeKind::Return(expr.map(|expr| self.numerate_expr(expr, &idents))),
+                kind: NodeKind::Return(expr.map(|expr| self.numerate_expr(expr, idents))),
                 span: n.span,
                 extra: n.extra,
             },
@@ -140,7 +140,7 @@ impl Numerator {
 
                 Node {
                     kind: NodeKind::While {
-                        cond: self.numerate_expr(cond, &idents),
+                        cond: self.numerate_expr(cond, idents),
                         body: Box::new(Node {
                             kind: NodeKind::Scope {
                                 body: self.numerate(kb, idents.clone()),
@@ -163,7 +163,7 @@ impl Numerator {
                 Node {
                     kind: NodeKind::If {
                         main: (
-                            self.numerate_expr(main.0, &idents),
+                            self.numerate_expr(main.0, idents),
                             Box::new(Node {
                                 kind: NodeKind::Scope {
                                     body: self.numerate(mb, idents.clone()),

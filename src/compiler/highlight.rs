@@ -62,7 +62,7 @@ pub enum HighlightToken {
 }
 
 pub fn highlight(
-    this: Result<HighlightToken, ()>,
+    this: &Result<HighlightToken, ()>,
     next: &Option<Result<HighlightToken, ()>>,
     text: &str,
 ) -> String {
@@ -79,4 +79,8 @@ pub fn highlight(
         }
         + "m"
         + text
+        + match (this, next) {
+            (Err(_), _) => "\x1b[21m",
+            _ => "",
+        }
 }

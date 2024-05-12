@@ -24,7 +24,5 @@ pub struct Args {
 pub enum ErrorStyle {
     #[default]
     Normal,
-    Compact,
     NoHighlight,
-    Simple,
 }
