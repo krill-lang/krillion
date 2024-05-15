@@ -54,11 +54,12 @@ impl Typechecker {
 
             match self.constrain_ids(id, *i) {
                 Ok(()) => {},
-                Err(e) => {
+                Err(()) => {
+                // Err(e) => {
                     self.types[id].base = CheckingBaseType::Error;
                     self.types[*i].base = CheckingBaseType::Error;
 
-                    self.errs.push((e, self.types[*i].derived_from.clone()));
+                    // self.errs.push((e, self.types[*i].derived_from.clone()));
                 },
             }
         }
@@ -439,7 +440,7 @@ impl Typechecker {
 
             (CheckingBaseType::BuiltIn(l), CheckingBaseType::BuiltIn(r)) => l == r,
 
-            (CheckingBaseType::Function(la, lr), CheckingBaseType::Function(ra, rr)) => {
+            (CheckingBaseType::Function(la, lr), CheckingBaseType::Function(ra, rr)) if la.len() == ra.len() => {
                 self.types_eq(*lr, *rr, hist.0)
                     && la
                         .iter()
@@ -455,8 +456,8 @@ impl Typechecker {
         }
     }
 
-    fn constrain_ids(&mut self, l: usize, r: usize) -> Result<(), TypeCheckError> {
-        self._constrain_ids(l, r, &mut vec![])
+    fn constrain_ids(&mut self, l: usize, r: usize) -> Result<(), ()> {
+        self._constrain_ids(l, r, &mut vec![], 0)
     }
 
     fn _constrain_ids(
@@ -464,7 +465,8 @@ impl Typechecker {
         l: usize,
         r: usize,
         hist: &mut Vec<(usize, usize)>,
-    ) -> Result<(), TypeCheckError> {
+        base: usize,
+    ) -> Result<(), /* TypeCheckError */()> {
         if hist
             .iter()
             .any(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2))
@@ -472,7 +474,8 @@ impl Typechecker {
             self.types[l].base = CheckingBaseType::Error;
             self.types[r].base = CheckingBaseType::Error;
 
-            return Err(TypeCheckError::CyclicType);
+            self.errs.push((TypeCheckError::CyclicType, self.types[r].derived_from.clone()));
+            return Err(());
         }
 
         let set = |s: &mut Self| {
@@ -511,25 +514,28 @@ impl Typechecker {
                 return Ok(());
             },
             (CheckingBaseType::Pointer(l), CheckingBaseType::Pointer(r)) => {
-                return self._constrain_ids(*l, *r, hist.0);
+                return self._constrain_ids(*l, *r, hist.0, base);
             },
             (CheckingBaseType::Slice(l), CheckingBaseType::Slice(r)) => {
-                return self._constrain_ids(*l, *r, hist.0);
+                return self._constrain_ids(*l, *r, hist.0, base);
             },
             (CheckingBaseType::Array(l, ls), CheckingBaseType::Array(r, rs)) if ls == rs => {
-                return self._constrain_ids(*l, *r, hist.0);
+                return self._constrain_ids(*l, *r, hist.0, base);
             },
             (CheckingBaseType::Function(lp, la), CheckingBaseType::Function(rp, ra))
                 if lp.len() == rp.len() =>
             {
                 let la = *la;
                 let ra = *ra;
-                return lp
-                    .clone()
-                    .into_iter()
-                    .zip(rp.clone())
-                    .try_fold((), |_, (b, c)| self._constrain_ids(b, c, hist.0))
-                    .and_then(|()| self._constrain_ids(la, ra, hist.0));
+                let base2 = hist.0.len();
+
+                let mut errors = false;
+                for (l, r) in lp.clone().into_iter().zip(rp.clone()) {
+                    errors |= self._constrain_ids(r, l, hist.0, base2).is_err();
+                }
+
+                errors |= self._constrain_ids(la, ra, hist.0, base2).is_err();
+                return errors.then_some(()).ok_or(());
             },
             _ => {},
         }
@@ -552,14 +558,16 @@ impl Typechecker {
             return Ok(());
         }
 
-        Err(TypeCheckError::TypeMismatch {
-            expected: self.format_id(hist.0[0].0),
-            found: self.format_id(hist.0[0].1),
-            because: self.types[hist.0[0].0].derived_from.clone(),
-        })
+        self.errs.push((TypeCheckError::TypeMismatch {
+            expected: self.format_id(hist.0[base].0),
+            found: self.format_id(hist.0[base].1),
+            because: self.types[hist.0[base].0].derived_from.clone(),
+        }, self.types[hist.0[base].1].derived_from.clone()));
+
+        Err(())
     }
 
-    fn format_id(&mut self, id: usize) -> String {
+    fn format_id(&self, id: usize) -> String {
         // self.finalize_id(id);
         let t = &self.types[id];
 

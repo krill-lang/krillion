@@ -141,13 +141,13 @@ impl CompilerError for TypeCheckError {
     fn markers(&self, span: Span) -> Vec<Marker> {
         match self {
             Self::TypeMismatch { expected, found, because } => vec![Marker {
-                message: format!("but found `{found}` here"),
-                span,
-                style: MarkerStyle::Primary,
-            }, Marker {
                 message: format!("expected `{expected}` because of this"),
                 span: because.clone(),
                 style: MarkerStyle::Secondary,
+            }, Marker {
+                message: format!("but found `{found}` here"),
+                span,
+                style: MarkerStyle::Primary,
             }],
             _ => default_markers(span),
         }

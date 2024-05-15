@@ -1,5 +1,11 @@
 let a = 0
 print(a[0])
-print(a == a)
+print(a == 0)
 
 fn print(_ int) {}
+
+print(a == 0)
+
+while 1 {
+
+}

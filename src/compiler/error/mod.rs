@@ -101,8 +101,8 @@ fn report_single<E: CompilerError, W: fmt::Write>(
         important_lines.push(byte_to_position(ctx, m.span.end).line);
     }
 
-    important_lines.sort();
-    important_lines.dedup();
+    // important_lines.sort();
+    dedup(&mut important_lines);
 
     writeln!(
         out,
@@ -146,7 +146,9 @@ fn report_single<E: CompilerError, W: fmt::Write>(
         }
 
         if important_lines.len() > (i + 1) && important_lines[i + 1] != l_s1 {
-            let omitted = important_lines[i + 1] - l_s1;
+            let omitted = important_lines[i + 1] as isize - l_s1 as isize;
+            let omitted = (omitted - omitted.signum() + 1).abs();
+
             let s = if omitted != 1 { "s" } else { "" };
             writeln!(out, "\x1b[0;90m({omitted} line{s} omitted)")?;
         }
@@ -217,5 +219,18 @@ impl MarkerStyle {
             Self::Primary => write!(out, "1;33m{empty:<prepending$}{empty:^<length$}"),
             Self::Secondary => write!(out, "1;34m{empty:<prepending$}{empty:─<length$}"),
         }
+    }
+}
+
+fn dedup<E: std::cmp::PartialEq>(v: &mut Vec<E>) {
+    let mut rm = Vec::new();
+    for (i, e) in v.iter().enumerate() {
+        if v[..i].contains(e) {
+            rm.push(i);
+        }
+    }
+
+    for (i, j) in rm.into_iter().enumerate() {
+        v.remove(j - i);
     }
 }
