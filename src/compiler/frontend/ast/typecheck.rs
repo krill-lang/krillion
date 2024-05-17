@@ -55,11 +55,8 @@ impl Typechecker {
             match self.constrain_ids(id, *i) {
                 Ok(()) => {},
                 Err(()) => {
-                // Err(e) => {
                     self.types[id].base = CheckingBaseType::Error;
                     self.types[*i].base = CheckingBaseType::Error;
-
-                    // self.errs.push((e, self.types[*i].derived_from.clone()));
                 },
             }
         }
@@ -188,7 +185,6 @@ impl Typechecker {
                 let f = self.id_from_type(CheckingBaseType::Function(p, r).expand(span.clone()));
                 self.link(ident.1.1, f);
 
-                // TODO: check return type
                 self.typecheck_node(body, Some(r));
             },
         }
@@ -267,7 +263,7 @@ impl Typechecker {
                 let b = self.id_from_type(
                     CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(expr.1.0.clone()),
                 );
-                self.link(b, expr.1.1);
+                self.link(expr.1.1, b);
             },
             Expr::BiOp {
                 lhs,
@@ -466,7 +462,7 @@ impl Typechecker {
         r: usize,
         hist: &mut Vec<(usize, usize)>,
         base: usize,
-    ) -> Result<(), /* TypeCheckError */()> {
+    ) -> Result<(), ()> {
         if hist
             .iter()
             .any(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2))
@@ -534,7 +530,7 @@ impl Typechecker {
                     errors |= self._constrain_ids(r, l, hist.0, base2).is_err();
                 }
 
-                errors |= self._constrain_ids(la, ra, hist.0, base2).is_err();
+                errors |= self._constrain_ids(ra, la, hist.0, base2).is_err();
                 return errors.then_some(()).ok_or(());
             },
             _ => {},
@@ -568,18 +564,9 @@ impl Typechecker {
     }
 
     fn format_id(&self, id: usize) -> String {
-        // self.finalize_id(id);
         let t = &self.types[id];
 
         let mut acc = String::new();
-
-        // if t.is_lvalue {
-        //     acc += "lvalue ";
-        // }
-
-        // for i in t.links_to.iter() {
-        //     acc += &format!("link {i} ");
-        // }
 
         match &t.base {
             CheckingBaseType::Pointer(t) => {
