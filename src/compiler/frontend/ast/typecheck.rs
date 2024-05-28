@@ -49,14 +49,14 @@ impl Typechecker {
 
         hist.push(id);
 
-        for i in self.types[id].links_to.clone().iter() {
-            self._finalize_single(*i, hist);
+        for i in self.types[id].links_to.clone().into_iter().chain(self.types[id].links_to.clone()) {
+            self._finalize_single(i, hist);
 
-            match self.constrain_ids(id, *i) {
+            match self.constrain_ids(id, i) {
                 Ok(()) => {},
                 Err(()) => {
-                    self.types[id].base = CheckingBaseType::Error;
-                    self.types[*i].base = CheckingBaseType::Error;
+                    self.recursive_error(id);
+                    self.recursive_error(i);
                 },
             }
         }
@@ -79,6 +79,8 @@ impl Typechecker {
 
         for c in self.types[id].links_to.clone().into_iter() {
             self.link_chain1(c, tar);
+
+            self.types[c].is_forced |= self.types[id].is_forced;
         }
     }
 
@@ -102,10 +104,35 @@ impl Typechecker {
 
     fn set_lvalue(&mut self, id: usize) { self.types[id].is_lvalue = true; }
 
+    fn enforce(&mut self, id: usize) { self.types[id].is_forced = true; }
+
     fn constrain_lvalue(&mut self, id: usize, span: &Span) {
         if !self.types[id].is_lvalue {
             self.errs
                 .push((TypeCheckError::ExpectedLvalue, span.clone()));
+        }
+    }
+
+    fn recursive_error(&mut self, id: usize) {
+        match &self.types[id].base {
+            CheckingBaseType::Slice(s)
+            | CheckingBaseType::Array(s, _)
+            | CheckingBaseType::Pointer(s)
+                => self.recursive_error(*s),
+            CheckingBaseType::Function(a, r) => {
+                let r = *r;
+
+                for a in a.clone().iter() {
+                    self.recursive_error(*a);
+                }
+
+                self.recursive_error(r);
+            },
+            CheckingBaseType::BuiltIn(_) | CheckingBaseType::Any | CheckingBaseType::Error | CheckingBaseType::Integer | CheckingBaseType::UnsignedInteger => {},
+        }
+
+        if !self.types[id].is_forced {
+            self.types[id].base = CheckingBaseType::Error;
         }
     }
 
@@ -118,6 +145,7 @@ impl Typechecker {
 
                 if let Some(t) = typ {
                     let t = self.id_from_atype(t);
+                    self.enforce(t);
                     self.link(ident.1.1, t);
                 }
 
@@ -133,6 +161,7 @@ impl Typechecker {
                 let b = self.id_from_type(
                     CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()),
                 );
+                self.enforce(b);
                 self.link(b, main.0.1.1);
 
                 self.typecheck_node(&main.1, ret);
@@ -145,6 +174,7 @@ impl Typechecker {
                 let b = self.id_from_type(
                     CheckingBaseType::BuiltIn(BuiltInType::Bool).expand(n.span.clone()),
                 );
+                self.enforce(b);
                 self.link(b, cond.1.1);
                 self.typecheck_node(body, ret);
             },
@@ -177,12 +207,16 @@ impl Typechecker {
                 let mut p = Vec::with_capacity(params.len());
                 for a in params.iter() {
                     let t = self.id_from_atype(&a.1);
+                    self.enforce(t);
                     self.link(a.0.1.1, t);
                     p.push(t);
                 }
 
                 let r = self.id_from_atype(return_type);
+                self.enforce(r);
                 let f = self.id_from_type(CheckingBaseType::Function(p, r).expand(span.clone()));
+                self.enforce(f);
+                self.enforce(ident.1.1);
                 self.link(ident.1.1, f);
 
                 self.typecheck_node(body, Some(r));
@@ -312,6 +346,7 @@ impl Typechecker {
 pub struct CheckingType {
     base: CheckingBaseType,
     is_lvalue: bool,
+    is_forced: bool,
     derived_from: Span,
 
     links_to: Vec<usize>,
@@ -361,6 +396,7 @@ impl CheckingBaseType {
         CheckingType {
             base: self,
             is_lvalue: false,
+            is_forced: false,
             derived_from: from,
             links_to: vec![],
             linked_from: vec![],
@@ -463,14 +499,21 @@ impl Typechecker {
         hist: &mut Vec<(usize, usize)>,
         base: usize,
     ) -> Result<(), ()> {
+        // let pre_err = |s: &mut Self| {
+        //     if !s.types[l].is_forced {
+        //         s.types[l].base = CheckingBaseType::Error;
+        //     }
+        //     if !s.types[r].is_forced {
+        //         s.types[r].base = CheckingBaseType::Error;
+        //     }
+        // };
+
         if hist
             .iter()
             .any(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2))
         {
-            self.types[l].base = CheckingBaseType::Error;
-            self.types[r].base = CheckingBaseType::Error;
-
             self.errs.push((TypeCheckError::CyclicType, self.types[r].derived_from.clone()));
+            // pre_err(self);
             return Err(());
         }
 
@@ -499,8 +542,8 @@ impl Typechecker {
 
         match (&self.types[l].base, &self.types[r].base) {
             (CheckingBaseType::Error, _) | (_, CheckingBaseType::Error) => {
-                self.types[l].base = CheckingBaseType::Error;
-                self.types[r].base = CheckingBaseType::Error;
+                self.recursive_error(l);
+                self.recursive_error(r);
 
                 return Ok(());
             },
@@ -527,11 +570,22 @@ impl Typechecker {
 
                 let mut errors = false;
                 for (l, r) in lp.clone().into_iter().zip(rp.clone()) {
-                    errors |= self._constrain_ids(r, l, hist.0, base2).is_err();
+                    errors |= self._constrain_ids(l, r, hist.0, base2).is_err();
                 }
 
-                errors |= self._constrain_ids(ra, la, hist.0, base2).is_err();
-                return errors.then_some(()).ok_or(());
+                errors |= self._constrain_ids(la, ra, hist.0, base2).is_err();
+
+                return (!errors).then_some(()).ok_or_else(|| {
+                    if hist.0.len() == 1 {
+                        self.errs.push((TypeCheckError::TypeMismatch {
+                            expected: self.format_id(hist.0[base].0),
+                            found: self.format_id(hist.0[base].1),
+                            because: self.types[hist.0[base].0].derived_from.clone(),
+                        }, self.types[hist.0[base].1].derived_from.clone()));
+                        // pre_err(self);
+                    }
+                    ()
+                });
             },
             _ => {},
         }
@@ -554,11 +608,14 @@ impl Typechecker {
             return Ok(());
         }
 
-        self.errs.push((TypeCheckError::TypeMismatch {
-            expected: self.format_id(hist.0[base].0),
-            found: self.format_id(hist.0[base].1),
-            because: self.types[hist.0[base].0].derived_from.clone(),
-        }, self.types[hist.0[base].1].derived_from.clone()));
+        if hist.0.len() == 1 {
+            self.errs.push((TypeCheckError::TypeMismatch {
+                expected: self.format_id(hist.0[base].0),
+                found: self.format_id(hist.0[base].1),
+                because: self.types[hist.0[base].0].derived_from.clone(),
+            }, self.types[hist.0[base].1].derived_from.clone()));
+        }
+        // pre_err(self);
 
         Err(())
     }
@@ -634,17 +691,22 @@ impl Typechecker {
                 CheckingBaseType::Integer => Type::BuiltIn(BuiltInType::Int),
                 CheckingBaseType::UnsignedInteger => Type::BuiltIn(BuiltInType::Uint),
                 CheckingBaseType::Any => {
-                    self.errs
-                        .push((TypeCheckError::UnresolvedType, t.derived_from.clone()));
-                    self.types[ti].base = CheckingBaseType::Error;
+                    // HACK: maybe error made it unable to properly link types
+                    if !self.errs.iter().any(|(e, _)| !matches!(e, TypeCheckError::UnresolvedType)) {
+                        self.errs
+                            .push((TypeCheckError::UnresolvedType, t.derived_from.clone()));
+                        self.types[ti].base = CheckingBaseType::Error;
 
-                    let t = &mut self.types[ti];
-                    t.links_to.append(&mut t.linked_from);
-                    self.finalize_id(ti);
+                        let t = &mut self.types[ti];
+                        t.links_to.append(&mut t.linked_from);
+                        self.finalize_id(ti);
+                    }
 
                     Type::Any
                 },
-                CheckingBaseType::Error => Type::Any,
+                CheckingBaseType::Error => {
+                    Type::Any
+                },
             },
             t.derived_from,
         );
