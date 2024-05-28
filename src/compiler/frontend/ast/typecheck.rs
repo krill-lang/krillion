@@ -49,16 +49,14 @@ impl Typechecker {
 
         hist.push(id);
 
-        for i in self.types[id].links_to.clone().into_iter().chain(self.types[id].links_to.clone()) {
+        for i in self.types[id].links_to.clone().into_iter() {
             self._finalize_single(i, hist);
+            let _ = self.constrain_ids(id, i);
+        }
 
-            match self.constrain_ids(id, i) {
-                Ok(()) => {},
-                Err(()) => {
-                    self.recursive_error(id);
-                    self.recursive_error(i);
-                },
-            }
+        for i in self.types[id].linked_from.clone().into_iter() {
+            self._finalize_single(i, hist);
+            let _ = self.constrain_ids(i, id);
         }
 
         hist.pop();
@@ -229,6 +227,7 @@ impl Typechecker {
         match &expr.0 {
             Expr::Integer(_) => {
                 let int = self.id_from_type(CheckingBaseType::Integer.expand(expr.1.0.clone()));
+                self.enforce(int);
                 self.link(expr.1.1, int);
             },
             Expr::Ident(id) => {
@@ -498,21 +497,11 @@ impl Typechecker {
         hist: &mut Vec<(usize, usize)>,
         base: usize,
     ) -> Result<(), ()> {
-        // let pre_err = |s: &mut Self| {
-        //     if !s.types[l].is_forced {
-        //         s.types[l].base = CheckingBaseType::Error;
-        //     }
-        //     if !s.types[r].is_forced {
-        //         s.types[r].base = CheckingBaseType::Error;
-        //     }
-        // };
-
         if hist
             .iter()
             .any(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2))
         {
             self.errs.push((TypeCheckError::CyclicType, self.types[r].derived_from.clone()));
-            // pre_err(self);
             return Err(());
         }
 
@@ -567,17 +556,14 @@ impl Typechecker {
                 let ra = *ra;
                 let base2 = hist.0.len();
 
-                // HACK: `r` and `l` intentionally swapped for better error messages
-                // why it works like that? idk /shrug, probably some programming errs previously
-                // and i am too lazy so i didn't fix it
                 let mut errors = false;
                 for (l, r) in lp.clone().into_iter().zip(rp.clone()) {
-                    errors |= self._constrain_ids(r, l, hist.0, base2).is_err();
+                    errors |= self._constrain_ids(l, r, hist.0, base2).is_err();
                 }
 
-                errors |= self._constrain_ids(ra, la, hist.0, base2).is_err();
+                errors |= self._constrain_ids(la, ra, hist.0, base2).is_err();
 
-                return (!errors).then_some(()).ok_or_else(|| ());
+                return (!errors).then_some(()).ok_or(());
             },
             _ => {},
         }
