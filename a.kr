@@ -1,6 +1,6 @@
 let a
-print(a[0])
-print(a == 0)
+print(a)
+print(a == (a == a))
 
 fn print(_ int) {}
 

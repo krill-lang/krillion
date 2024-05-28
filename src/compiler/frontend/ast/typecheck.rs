@@ -65,6 +65,7 @@ impl Typechecker {
     }
 
     fn link(&mut self, id: usize, c: usize) {
+        self.types[id].is_forced |= self.types[c].is_forced;
         self.def_in(id, self.types[c].derived_from.clone());
         self.link_chain1(id, c);
         self.link_chain2(c, id);
@@ -79,8 +80,6 @@ impl Typechecker {
 
         for c in self.types[id].links_to.clone().into_iter() {
             self.link_chain1(c, tar);
-
-            self.types[c].is_forced |= self.types[id].is_forced;
         }
     }
 
@@ -568,24 +567,17 @@ impl Typechecker {
                 let ra = *ra;
                 let base2 = hist.0.len();
 
+                // HACK: `r` and `l` intentionally swapped for better error messages
+                // why it works like that? idk /shrug, probably some programming errs previously
+                // and i am too lazy so i didn't fix it
                 let mut errors = false;
                 for (l, r) in lp.clone().into_iter().zip(rp.clone()) {
-                    errors |= self._constrain_ids(l, r, hist.0, base2).is_err();
+                    errors |= self._constrain_ids(r, l, hist.0, base2).is_err();
                 }
 
-                errors |= self._constrain_ids(la, ra, hist.0, base2).is_err();
+                errors |= self._constrain_ids(ra, la, hist.0, base2).is_err();
 
-                return (!errors).then_some(()).ok_or_else(|| {
-                    if hist.0.len() == 1 {
-                        self.errs.push((TypeCheckError::TypeMismatch {
-                            expected: self.format_id(hist.0[base].0),
-                            found: self.format_id(hist.0[base].1),
-                            because: self.types[hist.0[base].0].derived_from.clone(),
-                        }, self.types[hist.0[base].1].derived_from.clone()));
-                        // pre_err(self);
-                    }
-                    ()
-                });
+                return (!errors).then_some(()).ok_or_else(|| ());
             },
             _ => {},
         }
@@ -608,14 +600,16 @@ impl Typechecker {
             return Ok(());
         }
 
-        if hist.0.len() == 1 {
+        if hist.0.len() == base + 1 {
             self.errs.push((TypeCheckError::TypeMismatch {
                 expected: self.format_id(hist.0[base].0),
                 found: self.format_id(hist.0[base].1),
                 because: self.types[hist.0[base].0].derived_from.clone(),
             }, self.types[hist.0[base].1].derived_from.clone()));
+
+            self.recursive_error(l);
+            self.recursive_error(r);
         }
-        // pre_err(self);
 
         Err(())
     }
@@ -624,6 +618,11 @@ impl Typechecker {
         let t = &self.types[id];
 
         let mut acc = String::new();
+
+        #[cfg(debug_assertions)]
+        if t.is_forced {
+            acc += "strict ";
+        }
 
         match &t.base {
             CheckingBaseType::Pointer(t) => {

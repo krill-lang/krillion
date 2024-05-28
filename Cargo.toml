@@ -4,10 +4,6 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.71.0" # 5 most recent versions
 
-[features]
-default = ["unstable"]
-unstable = []
-
 [dependencies]
 logos = "0.13.0"
 clap = { path = "clap", features = ["derive"] }

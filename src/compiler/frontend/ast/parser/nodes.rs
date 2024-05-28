@@ -67,9 +67,6 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_inner(&mut self, ast: &mut UntypedAst, depth: usize) -> bool {
-        #[cfg(feature = "unstable")]
-        println!("{}", self.buf.idx);
-
         let visibility = self.parse_visibility();
         let linkage = self.parse_linkage();
 

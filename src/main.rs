@@ -27,7 +27,7 @@ fn main() {
 
     let args = Args::parse();
 
-    #[cfg(feature = "unstable")]
+    #[cfg(debug_assertions)]
     if let Some(msg) = args.panics {
         std::panic::panic_any(format!("{msg}"));
     }
