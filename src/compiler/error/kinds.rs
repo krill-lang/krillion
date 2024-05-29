@@ -109,7 +109,11 @@ impl CompilerError for NumerateError {
 #[derive(Debug, Clone)]
 pub enum TypeCheckError {
     UnresolvedType,
-    TypeMismatch { expected: String, found: String, because: Span },
+    TypeMismatch {
+        expected: String,
+        found: String,
+        because: Span,
+    },
     ExpectedLvalue,
     CyclicType,
     UnexpectedReturn,
@@ -134,21 +138,26 @@ impl CompilerError for TypeCheckError {
         None
     }
 
-    fn severeness(&self) -> Severeness {
-        Severeness::Error
-    }
+    fn severeness(&self) -> Severeness { Severeness::Error }
 
     fn markers(&self, span: Span) -> Vec<Marker> {
         match self {
-            Self::TypeMismatch { expected, found, because } => vec![Marker {
-                message: format!("expected `{expected}` because of this"),
-                span: because.clone(),
-                style: MarkerStyle::Secondary,
-            }, Marker {
-                message: format!("but found `{found}` here"),
-                span,
-                style: MarkerStyle::Primary,
-            }],
+            Self::TypeMismatch {
+                expected,
+                found,
+                because,
+            } => vec![
+                Marker {
+                    message: format!("expected `{expected}` because of this"),
+                    span: because.clone(),
+                    style: MarkerStyle::Secondary,
+                },
+                Marker {
+                    message: format!("but found `{found}` here"),
+                    span,
+                    style: MarkerStyle::Primary,
+                },
+            ],
             _ => default_markers(span),
         }
     }

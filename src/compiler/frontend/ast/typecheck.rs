@@ -63,7 +63,6 @@ impl Typechecker {
     }
 
     fn link(&mut self, id: usize, c: usize) {
-        self.types[id].is_forced |= self.types[c].is_forced;
         self.def_in(id, self.types[c].derived_from.clone());
         self.link_chain1(id, c);
         self.link_chain2(c, id);
@@ -114,8 +113,7 @@ impl Typechecker {
         match &self.types[id].base {
             CheckingBaseType::Slice(s)
             | CheckingBaseType::Array(s, _)
-            | CheckingBaseType::Pointer(s)
-                => self.recursive_error(*s),
+            | CheckingBaseType::Pointer(s) => self.recursive_error(*s),
             CheckingBaseType::Function(a, r) => {
                 let r = *r;
 
@@ -125,7 +123,11 @@ impl Typechecker {
 
                 self.recursive_error(r);
             },
-            CheckingBaseType::BuiltIn(_) | CheckingBaseType::Any | CheckingBaseType::Error | CheckingBaseType::Integer | CheckingBaseType::UnsignedInteger => {},
+            CheckingBaseType::BuiltIn(_)
+            | CheckingBaseType::Any
+            | CheckingBaseType::Error
+            | CheckingBaseType::Integer
+            | CheckingBaseType::UnsignedInteger => {},
         }
 
         if !self.types[id].is_forced {
@@ -307,6 +309,7 @@ impl Typechecker {
 
                 let a =
                     self.id_from_type(CheckingBaseType::Slice(expr.1.1).expand(expr.1.0.clone()));
+                self.enforce(a);
                 self.link(a, lhs.1.1);
 
                 let u =
@@ -470,7 +473,9 @@ impl Typechecker {
 
             (CheckingBaseType::BuiltIn(l), CheckingBaseType::BuiltIn(r)) => l == r,
 
-            (CheckingBaseType::Function(la, lr), CheckingBaseType::Function(ra, rr)) if la.len() == ra.len() => {
+            (CheckingBaseType::Function(la, lr), CheckingBaseType::Function(ra, rr))
+                if la.len() == ra.len() =>
+            {
                 self.types_eq(*lr, *rr, hist.0)
                     && la
                         .iter()
@@ -501,7 +506,10 @@ impl Typechecker {
             .iter()
             .any(|(l2, r2)| (l == *l2 && r == *r2) || (l == *r2 && r == *l2))
         {
-            self.errs.push((TypeCheckError::CyclicType, self.types[r].derived_from.clone()));
+            self.errs.push((
+                TypeCheckError::CyclicType,
+                self.types[r].derived_from.clone(),
+            ));
             return Err(());
         }
 
@@ -587,11 +595,14 @@ impl Typechecker {
         }
 
         if hist.0.len() == base + 1 {
-            self.errs.push((TypeCheckError::TypeMismatch {
-                expected: self.format_id(hist.0[base].0),
-                found: self.format_id(hist.0[base].1),
-                because: self.types[hist.0[base].0].derived_from.clone(),
-            }, self.types[hist.0[base].1].derived_from.clone()));
+            self.errs.push((
+                TypeCheckError::TypeMismatch {
+                    expected: self.format_id(hist.0[base].0),
+                    found: self.format_id(hist.0[base].1),
+                    because: self.types[hist.0[base].0].derived_from.clone(),
+                },
+                self.types[hist.0[base].1].derived_from.clone(),
+            ));
 
             self.recursive_error(l);
             self.recursive_error(r);
@@ -677,7 +688,11 @@ impl Typechecker {
                 CheckingBaseType::UnsignedInteger => Type::BuiltIn(BuiltInType::Uint),
                 CheckingBaseType::Any => {
                     // HACK: maybe error made it unable to properly link types
-                    if !self.errs.iter().any(|(e, _)| !matches!(e, TypeCheckError::UnresolvedType)) {
+                    if !self
+                        .errs
+                        .iter()
+                        .any(|(e, _)| !matches!(e, TypeCheckError::UnresolvedType))
+                    {
                         self.errs
                             .push((TypeCheckError::UnresolvedType, t.derived_from.clone()));
                         self.types[ti].base = CheckingBaseType::Error;
@@ -689,9 +704,7 @@ impl Typechecker {
 
                     Type::Any
                 },
-                CheckingBaseType::Error => {
-                    Type::Any
-                },
+                CheckingBaseType::Error => Type::Any,
             },
             t.derived_from,
         );

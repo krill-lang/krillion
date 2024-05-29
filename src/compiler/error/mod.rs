@@ -3,8 +3,8 @@ pub use kinds::*;
 
 use super::*;
 use crate::args::{Args, ErrorStyle};
-use frontend::*;
 use core::fmt;
+use frontend::*;
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone)]
@@ -124,7 +124,10 @@ fn report_single<E: CompilerError, W: fmt::Write>(
         write!(out, "\x1b[1;34m{l_s1:<line_no_len$} │ \x1b[0m")?;
 
         if !matches!(ctx.args.error_style, ErrorStyle::NoHighlight) {
-            let hl = ctx.source[ctx.cat[*l]..ctx.cat[*l + 1]].trim_end().to_string() + "\n";
+            let hl = ctx.source[ctx.cat[*l]..ctx.cat[*l + 1]]
+                .trim_end()
+                .to_string()
+                + "\n";
             let mut hl = HighlightToken::lexer(&hl);
             let mut t0 = hl.next();
 
@@ -138,7 +141,11 @@ fn report_single<E: CompilerError, W: fmt::Write>(
 
             writeln!(out, "\x1b[0m")?;
         } else {
-            writeln!(out, "{}", ctx.source[ctx.cat[*l]..ctx.cat[*l + 1]].trim_end())?;
+            writeln!(
+                out,
+                "{}",
+                ctx.source[ctx.cat[*l]..ctx.cat[*l + 1]].trim_end()
+            )?;
         }
 
         for m in markers.iter() {
@@ -157,16 +164,17 @@ fn report_single<E: CompilerError, W: fmt::Write>(
     writeln!(out, "\x1b[1;34m{empty:<line_no_len$} │\x1b[0m")?;
 
     if let Some(c) = err.consider() {
-        writeln!(out, "\x1b[1;34m{empty:<line_no_len$} └─ \x1b[0;1mConsider:\x1b[0m {c}")?;
+        writeln!(
+            out,
+            "\x1b[1;34m{empty:<line_no_len$} └─ \x1b[0;1mConsider:\x1b[0m {c}"
+        )?;
     }
 
     writeln!(out)
 }
 
 fn byte_to_position(ctx: &ErrorContext<'_>, pos: usize) -> Position {
-    let line = ctx.source[..pos]
-        .matches('\n')
-        .count();
+    let line = ctx.source[..pos].matches('\n').count();
     let rel = &ctx.source[ctx.cat[line]..pos];
 
     Position {
@@ -187,7 +195,13 @@ impl fmt::Display for Position {
 }
 
 impl Marker {
-    fn mark_line<W: fmt::Write>(&self, ctx: &ErrorContext<'_>, offset: usize, line: usize, out: &mut W) -> fmt::Result {
+    fn mark_line<W: fmt::Write>(
+        &self,
+        ctx: &ErrorContext<'_>,
+        offset: usize,
+        line: usize,
+        out: &mut W,
+    ) -> fmt::Result {
         if self.span.start > ctx.cat[line + 1] || ctx.cat[line] > self.span.end {
             return Ok(());
         }
