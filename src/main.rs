@@ -61,4 +61,6 @@ fn main() {
 
     let types = unwrap_or_report!(typecheck(&nast, ncnt));
     println!("{types:#?}");
+
+    compiler::backend::llvm::emit_code();
 }

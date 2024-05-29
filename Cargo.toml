@@ -10,6 +10,8 @@ clap = { path = "clap", features = ["derive"] }
 unicode-width = "0.1.11"
 backtrace = "0.3.69"
 panic-message = "0.3.0"
+llvm-sys = { version = "170.0.0", features = ["prefer-dynamic"] }
+libc = "0.2.155"
 
 [profile.release]
 strip = true

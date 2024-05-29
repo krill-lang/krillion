@@ -89,8 +89,8 @@ fn report_single<E: CompilerError, W: fmt::Write>(
 ) -> fmt::Result {
     let markers = err.markers(span.clone());
 
-    let endest = markers.last().unwrap().span.end;
-    let line_no_len = endest.ilog10() as usize + 1;
+    let endest = byte_to_position(ctx, markers.iter().map(|i| i.span.end).max().unwrap()).line;
+    let line_no_len = (endest + 1).ilog10() as usize + 1;
 
     let start = byte_to_position(ctx, span.start);
     let end = byte_to_position(ctx, span.end);
@@ -207,7 +207,7 @@ impl Marker {
         }
 
         let start = byte_to_position(ctx, self.span.start.max(ctx.cat[line]));
-        let end = byte_to_position(ctx, self.span.end.min(ctx.cat[line + 1] - 1));
+        let end = byte_to_position(ctx, self.span.end.min(ctx.cat[line + 1]));
 
         let empty = "";
 
