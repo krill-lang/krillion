@@ -2,9 +2,9 @@ let a
 print(a[a])
 print(a == 0)
 
-fn print(_ int) {}
+fn print(_ bool) {}
 
-print(a == 0, 0)
+print(0)
 
 //while 1 {
 //

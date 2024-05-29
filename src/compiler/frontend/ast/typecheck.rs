@@ -229,7 +229,6 @@ impl Typechecker {
         match &expr.0 {
             Expr::Integer(_) => {
                 let int = self.id_from_type(CheckingBaseType::Integer.expand(expr.1.0.clone()));
-                self.enforce(int);
                 self.link(expr.1.1, int);
             },
             Expr::Ident(id) => {
