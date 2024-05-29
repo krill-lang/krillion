@@ -36,6 +36,35 @@ impl Llvm {
         unsafe { llvm::core::LLVMDumpModule(self.module); }
     }
 
+    pub fn emit_obj(&self) {
+        unsafe {
+            let triple = llvm::target_machine::LLVMGetDefaultTargetTriple();
+            llvm::target::LLVM_InitializeAllTargetInfos();
+            llvm::target::LLVM_InitializeAllTargets();
+            llvm::target::LLVM_InitializeAllTargets();
+            llvm::target::LLVM_InitializeAllAsmParsers();
+            llvm::target::LLVM_InitializeAllAsmPrinters();
+
+            let machine = llvm::target_machine::LLVMCreateTargetMachine(
+                todo!(),
+                triple,
+                b"generic\0".as_ptr() as _,
+                b"\0".as_ptr() as _,
+                todo!(),
+                todo!(),
+                todo!(),
+            );
+
+            llvm::target_machine::LLVMTargetMachineEmitToFile(
+                todo!(),
+                self.module,
+                b"test.o\0".as_mut_ptr() as *mut _,
+                todo!(),
+                core::ptr::null_mut(),
+            );
+        }
+    }
+
     pub fn create_bb(&mut self, name: &str) -> LLVMBasicBlockRef {
         unsafe {
             llvm::core::LLVMAppendBasicBlockInContext(
@@ -102,6 +131,7 @@ impl Llvm {
         }
     }
 
+    // private helpers
     fn new_name(&mut self, n: &str) -> *const libc::c_char {
         let start = self.names.len();
         self.names.extend(n.bytes());
