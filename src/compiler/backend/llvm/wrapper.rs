@@ -1,5 +1,6 @@
 use llvm_sys::prelude::*;
 use llvm_sys as llvm;
+use std::ffi::*;
 
 pub struct Llvm {
     context: LLVMContextRef,
@@ -7,8 +8,6 @@ pub struct Llvm {
     builder: LLVMBuilderRef,
 
     current_fn: Option<LLVMValueRef>,
-
-    names: Vec<u8>,
 }
 
 impl Llvm {
@@ -24,8 +23,6 @@ impl Llvm {
                 builder,
 
                 current_fn: None,
-
-                names: vec![],
             }
         }
     }
@@ -36,24 +33,38 @@ impl Llvm {
 
     pub fn emit_obj(&self) {
         unsafe {
-            let triple = llvm::target_machine::LLVMGetDefaultTargetTriple();
             llvm::target::LLVM_InitializeAllTargetInfos();
             llvm::target::LLVM_InitializeAllTargets();
             llvm::target::LLVM_InitializeAllTargets();
             llvm::target::LLVM_InitializeAllAsmParsers();
             llvm::target::LLVM_InitializeAllAsmPrinters();
 
-            let target = llvm::target_machine::LLVMGetFirstTarget();
+            let triple = llvm::target_machine::LLVMGetDefaultTargetTriple();
+            assert!(!triple.is_null());
+
+            println!("{}", CStr::from_ptr(triple).to_str().unwrap());
+
+            let mut target = core::ptr::null_mut();
+            let mut error = core::ptr::null_mut();
+            let result = llvm::target_machine::LLVMGetTargetFromTriple(triple, &mut target, &mut error);
+            assert!(!target.is_null());
+            assert!(error.is_null());
+            assert!(result == 0);
+
+            println!("{}", CStr::from_ptr(llvm::target_machine::LLVMGetTargetName(target)).to_str().unwrap());
 
             let machine = llvm::target_machine::LLVMCreateTargetMachine(
                 target,
                 triple,
-                b"generic\0".as_ptr() as _,
-                b"\0".as_ptr() as _,
-                llvm::target_machine::LLVMCodeGenOptLevel::LLVMCodeGenLevelNone,
+                b"generic\0".as_ptr() as *const _,
+                b"\0".as_ptr() as *const _,
+                llvm::target_machine::LLVMCodeGenOptLevel::LLVMCodeGenLevelDefault,
                 llvm::target_machine::LLVMRelocMode::LLVMRelocDefault,
                 llvm::target_machine::LLVMCodeModel::LLVMCodeModelDefault,
             );
+
+            llvm::core::LLVMSetTarget(self.module, triple);
+
             println!("a");
 
             llvm::target_machine::LLVMTargetMachineEmitToFile(
@@ -74,14 +85,14 @@ impl Llvm {
             llvm::core::LLVMAppendBasicBlockInContext(
                 self.context,
                 self.current_fn.expect("make a function before calling `create_bb`!"),
-                self.new_name(name),
+                self.new_name(name).as_ptr(),
             )
         }
     }
 
     pub fn create_fn_and_switch(&mut self, name: &str, fn_t: LLVMTypeRef) -> LLVMValueRef {
         unsafe {
-            let ret = llvm::core::LLVMAddFunction(self.module, self.new_name(name), fn_t);
+            let ret = llvm::core::LLVMAddFunction(self.module, self.new_name(name).as_ptr(), fn_t);
             self.current_fn = Some(ret);
             ret
         }
@@ -128,16 +139,13 @@ impl Llvm {
     // insts
     pub fn build_alloca(&mut self, name: &str, ty: LLVMTypeRef) -> LLVMValueRef {
         unsafe {
-            llvm::core::LLVMBuildAlloca(self.builder, ty, self.new_name(name))
+            llvm::core::LLVMBuildAlloca(self.builder, ty, self.new_name(name).as_ptr())
         }
     }
 
     // private helpers
-    fn new_name(&mut self, n: &str) -> *const libc::c_char {
-        self.names.clear();
-        self.names.extend(n.bytes());
-        self.names.push(0);
-        self.names.as_ptr() as *const _
+    fn new_name(&mut self, n: &str) -> CString {
+        CString::new(n).unwrap()
     }
 }
 

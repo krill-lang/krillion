@@ -78,6 +78,10 @@ pub fn report<E: CompilerError>(
         have_error |= matches!(err.severeness(), Severeness::Error);
     }
 
+    if have_error {
+        out += "\x1b[1mTL;DR: compilation successfully failed\x1b[0m\n\n";
+    }
+
     (out, have_error)
 }
 

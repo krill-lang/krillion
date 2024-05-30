@@ -2,7 +2,7 @@
 name = "krillion"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.71.0" # 5 most recent versions
+rust-version = "1.68.0" # 10 most recent versions
 
 [dependencies]
 logos = "0.13.0"
@@ -10,8 +10,7 @@ clap = { path = "clap", features = ["derive"] }
 unicode-width = "0.1.11"
 backtrace = "0.3.69"
 panic-message = "0.3.0"
-llvm-sys = { version = "170.0.0", features = ["prefer-dynamic"] }
-libc = "0.2.155"
+llvm-sys = { version = "170", features = ["prefer-dynamic"] }
 
 [profile.release]
 strip = true
