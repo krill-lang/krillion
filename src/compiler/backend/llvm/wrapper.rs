@@ -8,7 +8,6 @@ pub struct Llvm {
 
     current_fn: Option<LLVMValueRef>,
 
-    fn_args: Vec<LLVMTypeRef>,
     names: Vec<u8>,
 }
 
@@ -26,7 +25,6 @@ impl Llvm {
 
                 current_fn: None,
 
-                fn_args: vec![],
                 names: vec![],
             }
         }
@@ -45,23 +43,29 @@ impl Llvm {
             llvm::target::LLVM_InitializeAllAsmParsers();
             llvm::target::LLVM_InitializeAllAsmPrinters();
 
+            let target = llvm::target_machine::LLVMGetFirstTarget();
+
             let machine = llvm::target_machine::LLVMCreateTargetMachine(
-                todo!(),
+                target,
                 triple,
                 b"generic\0".as_ptr() as _,
                 b"\0".as_ptr() as _,
-                todo!(),
-                todo!(),
-                todo!(),
+                llvm::target_machine::LLVMCodeGenOptLevel::LLVMCodeGenLevelNone,
+                llvm::target_machine::LLVMRelocMode::LLVMRelocDefault,
+                llvm::target_machine::LLVMCodeModel::LLVMCodeModelDefault,
             );
+            println!("a");
 
             llvm::target_machine::LLVMTargetMachineEmitToFile(
-                todo!(),
+                machine,
                 self.module,
-                b"test.o\0".as_mut_ptr() as *mut _,
-                todo!(),
+                b"test.o\0".clone().as_mut_ptr() as *mut _,
+                llvm::target_machine::LLVMCodeGenFileType::LLVMObjectFile,
                 core::ptr::null_mut(),
             );
+            println!("a");
+
+            llvm::target_machine::LLVMDisposeTargetMachine(machine);
         }
     }
 
@@ -94,12 +98,9 @@ impl Llvm {
         unsafe { llvm::core::LLVMVoidTypeInContext(self.context) }
     }
 
-    pub fn type_fn(&mut self, args: Vec<LLVMTypeRef>, ret: LLVMTypeRef) -> LLVMTypeRef {
+    pub fn type_fn(&mut self, mut args: Vec<LLVMTypeRef>, ret: LLVMTypeRef) -> LLVMTypeRef {
         unsafe {
-            let len = args.len();
-            let start = self.fn_args.len();
-            self.fn_args.extend(args);
-            llvm::core::LLVMFunctionType(ret, self.fn_args[start..].as_mut_ptr(), len as u32, 0)
+            llvm::core::LLVMFunctionType(ret, args.as_mut_ptr(), args.len() as u32, 0)
         }
     }
 
@@ -133,10 +134,10 @@ impl Llvm {
 
     // private helpers
     fn new_name(&mut self, n: &str) -> *const libc::c_char {
-        let start = self.names.len();
+        self.names.clear();
         self.names.extend(n.bytes());
         self.names.push(0);
-        self.names[start..].as_ptr() as *const _
+        self.names.as_ptr() as *const _
     }
 }
 

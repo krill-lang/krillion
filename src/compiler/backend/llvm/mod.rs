@@ -5,10 +5,10 @@ pub fn emit_code() {
     let mut llvm = llvm::Llvm::new();
 
     let void = llvm.type_void();
-    let fn_t = llvm.type_fn(vec![], void);
-    llvm.create_fn_and_switch("main", fn_t);
-
     let int = llvm.type_int(8);
+
+    let fn_t = llvm.type_fn(vec![int], void);
+    llvm.create_fn_and_switch("main", fn_t);
 
     let a = llvm.create_bb("a");
     let b = llvm.create_bb("b");
@@ -21,4 +21,5 @@ pub fn emit_code() {
     llvm.build_ret(None);
 
     llvm.dump();
+    llvm.emit_obj();
 }
